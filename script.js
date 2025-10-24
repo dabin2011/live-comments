@@ -10,10 +10,11 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 
+// References
 const auth = firebase.auth();
 const db = firebase.database();
 const commentsRef = db.ref("comments");
-const pollsRef = db.ref("polls");       // /polls/active を使う
+const pollsRef = db.ref("polls");       // use /polls/active
 const arrivalsRef = db.ref("arrivals");
 
 const THREE_HOURS = 3 * 60 * 60 * 1000;
@@ -27,52 +28,55 @@ let localPollListenerSet = false;
 let finalized = false;
 let myVoteOpt = null;
 
-// -------------------- モーダル --------------------
-function openModal(id) { const el = document.getElementById(id); if(!el) return; el.style.display = "block"; el.setAttribute("aria-hidden","false"); }
-function closeModal(id) { const el = document.getElementById(id); if(!el) return; el.style.display = "none"; el.setAttribute("aria-hidden","true"); }
-window.addEventListener("click", (e) => { document.querySelectorAll(".modal").forEach(m=>{ if(e.target===m) m.style.display="none"; }); });
+// -------------------- Utility --------------------
+function escapeHtml(str){ if(str===null||str===undefined) return ""; return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+
+// -------------------- Modal --------------------
+function openModal(id){ const el = document.getElementById(id); if(!el) return; el.style.display = "block"; el.setAttribute("aria-hidden","false"); }
+function closeModal(id){ const el = document.getElementById(id); if(!el) return; el.style.display = "none"; el.setAttribute("aria-hidden","true"); }
+window.addEventListener("click", (e)=>{ document.querySelectorAll(".modal").forEach(m=>{ if(e.target===m) m.style.display="none"; }); });
 
 // -------------------- Arrival banner --------------------
-function showArrivalBanner(name) {
+function showArrivalBanner(name){
   const banner = document.getElementById("arrivalBanner");
   if(!banner) return;
-  const safeName = name ? escapeHtml(name) : "ゲスト";
-  banner.textContent = `${safeName}さんが配信を視聴しに来ました`;
+  const safe = name ? escapeHtml(name) : "ゲスト";
+  banner.textContent = `${safe}さんが配信を視聴しに来ました`;
   banner.style.display = "block";
   banner.classList.add("show");
-  if (banner._hideTimer) clearTimeout(banner._hideTimer);
-  banner._hideTimer = setTimeout(()=> {
+  if(banner._hideTimer) clearTimeout(banner._hideTimer);
+  banner._hideTimer = setTimeout(()=>{
     banner.classList.remove("show");
-    setTimeout(()=> { if(!banner.classList.contains("show")) banner.style.display="none"; }, 300);
+    setTimeout(()=>{ if(!banner.classList.contains("show")) banner.style.display = "none"; }, 300);
   }, ARRIVAL_BANNER_DURATION);
 }
 
-// -------------------- 初期リスナー設定 --------------------
+// -------------------- Startup listeners (must register early) --------------------
 setupGlobalListeners();
-function setupGlobalListeners() {
-  // arrivals listener
-  arrivalsRef.on("child_added", snap => {
+function setupGlobalListeners(){
+  // arrivals
+  arrivalsRef.on("child_added", snap=>{
     const data = snap.val();
-    if(!data || data.type!=="arrival") return;
+    if(!data || data.type !== "arrival") return;
     showArrivalBanner(data.name);
     snap.ref.remove().catch(()=>{/*ignore*/});
   });
 
-  // poll listener
+  // polls listener registered immediately
   ensurePollListener();
 
   // comments
   initComments();
 }
 
-// -------------------- 認証監視 --------------------
-auth.onAuthStateChanged(user => {
+// -------------------- Auth state --------------------
+auth.onAuthStateChanged(user=>{
   const form = document.getElementById("form");
   const loginBtn = document.getElementById("loginBtn");
   const mypageBtn = document.getElementById("mypageBtn");
   const logoutBtn = document.getElementById("logoutBtn");
 
-  if (user) {
+  if(user){
     form.style.display = "flex";
     loginBtn.style.display = "none";
     mypageBtn.style.display = "inline-block";
@@ -80,7 +84,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById("username").textContent = user.displayName || user.email;
     document.getElementById("avatar").src = user.photoURL || "";
 
-    if (!_prevAuthUser) {
+    if(!_prevAuthUser){
       const name = user.displayName || user.email || "ゲスト";
       arrivalsRef.push({ type:"arrival", name, timestamp: Date.now() }).catch(err=>console.warn(err));
       showArrivalBanner(name);
@@ -97,43 +101,28 @@ auth.onAuthStateChanged(user => {
 });
 
 // -------------------- Auth actions --------------------
-function signUp() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-  if(!email||!password) return alert("メールとパスワードを入力してください");
-  auth.createUserWithEmailAndPassword(email,password).then(()=>{ alert("登録成功"); closeModal('loginModal'); }).catch(err=>alert(err.message));
-}
-function signIn() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-  if(!email||!password) return alert("メールとパスワードを入力してください");
-  auth.signInWithEmailAndPassword(email,password).then(()=>{ alert("ログイン成功"); closeModal('loginModal'); }).catch(err=>alert(err.message));
-}
+function signUp(){ const email=document.getElementById("email").value.trim(); const password=document.getElementById("password").value; if(!email||!password) return alert("メールとパスワードを入力してください"); auth.createUserWithEmailAndPassword(email,password).then(()=>{ alert("登録成功"); closeModal('loginModal'); }).catch(err=>alert(err.message)); }
+function signIn(){ const email=document.getElementById("email").value.trim(); const password=document.getElementById("password").value; if(!email||!password) return alert("メールとパスワードを入力してください"); auth.signInWithEmailAndPassword(email,password).then(()=>{ alert("ログイン成功"); closeModal('loginModal'); }).catch(err=>alert(err.message)); }
 function signOut(){ auth.signOut().then(()=>{ alert("ログアウトしました"); }).catch(err=>alert(err.message)); }
 function updateProfile(){ const user=auth.currentUser; const newName=document.getElementById("newName").value.trim(); if(!user) return alert("ログインしてください"); if(!newName) return alert("名前を入力してください"); user.updateProfile({ displayName:newName }).then(()=>{ alert("ユーザー名を更新しました"); document.getElementById("username").textContent=newName; closeModal('mypageModal'); }).catch(err=>alert("更新失敗："+err.message)); }
 
-// -------------------- コメント機能 --------------------
+// -------------------- Comments --------------------
 function sendComment(){
   const user = auth.currentUser;
   const text = document.getElementById("commentInput").value.trim();
   if(!user) return alert("ログインしてください");
   if(!text) return;
-  commentsRef.push({
-    uid: user.uid,
-    name: user.displayName || user.email,
-    photo: user.photoURL || "",
-    text,
-    timestamp: Date.now()
-  }).then(()=> { document.getElementById("commentInput").value = ""; }).catch(err=>alert("保存失敗："+err.message));
+  commentsRef.push({ uid: user.uid, name: user.displayName || user.email, photo: user.photoURL || "", text, timestamp: Date.now() })
+    .then(()=> document.getElementById("commentInput").value = "")
+    .catch(err=>alert("保存失敗："+err.message));
 }
 
-function formatTimeOnly(ts){ const d=new Date(ts); const hh=String(d.getHours()).padStart(2,"0"); const mm=String(d.getMinutes()).padStart(2,"0"); return `${hh}:${mm}`; }
+function formatTimeOnly(ts){ const d=new Date(ts); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-// comments display
 function initComments(){
   commentsRef.once("value", snapshot=>{
-    let earliest=null;
-    snapshot.forEach(child=>{ const data=child.val(); if(data && data.timestamp && (!earliest || data.timestamp<earliest)) earliest=data.timestamp; });
+    let earliest = null;
+    snapshot.forEach(child=>{ const data = child.val(); if(data && data.timestamp && (!earliest || data.timestamp < earliest)) earliest = data.timestamp; });
     firstCommentTime = earliest || Date.now();
     commentsRef.on("child_added", snap=>{
       const data = snap.val();
@@ -143,6 +132,7 @@ function initComments(){
     });
   });
 }
+
 function prependCommentWithPushAnimation(data){
   const commentsEl = document.getElementById("comments");
   const existing = Array.from(commentsEl.children);
@@ -165,7 +155,9 @@ function prependCommentWithPushAnimation(data){
   setTimeout(()=>{ div.classList.remove("new"); existing.forEach(el=>el.classList.remove("_prep-shift")); },600);
 }
 
-// -------------------- Poll (アンケート) 機能 --------------------
+// -------------------- Poll (アンケート) --------------------
+// ensure listener is registered immediately (done in setupGlobalListeners)
+
 function addPollOption(){
   const wrapper = document.getElementById("pollOptionsWrapper");
   const input = document.createElement("input");
@@ -188,7 +180,6 @@ function createPoll(){
   const now = Date.now();
   const pollObj = { active:true, question:q, options:opts, startedAt:now, endsAt: now + POLL_DURATION_MS, creatorUid: user.uid, state:"voting" };
 
-  console.log("createPoll writing", pollObj);
   pollsRef.child("active").set(pollObj)
     .then(()=> { closeModal('pollModal'); })
     .catch(err=> { console.error("createPoll failed", err); alert("アンケート作成失敗："+err.message); });
@@ -197,8 +188,8 @@ function createPoll(){
 function ensurePollListener(){
   if(localPollListenerSet) return;
   pollsRef.child("active").on("value", snap=>{
-    console.log("poll active value", snap.val());
     const data = snap.val();
+    console.log("poll active value", data);
     if(!data || data.active !== true){
       hidePollUI();
       localActivePoll = null;
@@ -206,32 +197,30 @@ function ensurePollListener(){
       return;
     }
     localActivePoll = data;
+    // render according to state
     renderPollState(data);
-    // if voting expired client-side may trigger finalize
-    if(data.state === "voting" && Date.now() > data.endsAt) {
+
+    // If voting timed out, trigger finalize from one client (race-safe since update uses DB and finalized flag)
+    if(data.state === "voting" && Date.now() > data.endsAt){
       finalizePollIfNeeded();
-    }
-    if(data.state === "showResults") {
-      // ensure scheduled removal will occur server/clientside
     }
   });
   localPollListenerSet = true;
 }
-ensurePollListener();
 
+// compute percent width
 function calcPercentWidth(count, poll){
   const total = (poll.options||[]).reduce((s,o)=>s+(o.count||0),0) || 0;
   if(total===0) return 0;
   return Math.round((count/total)*100);
 }
-function formatPercent(count,poll){ return calcPercentWidth(count,poll); }
 
-// voteOption: write vote and mark selection
+// vote
 function voteOption(optId){
   const user = auth.currentUser;
   if(!user) return alert("ログインしてください");
   if(!localActivePoll) return;
-  if(localActivePoll.state === "showResults") return;
+  if(localActivePoll.state === "showResults" || localActivePoll.state === "counting") return;
   const uid = user.uid;
   const votePath = pollsRef.child("active").child("votes").child(uid);
   votePath.set({ opt:optId, at:Date.now(), name:user.displayName || user.email })
@@ -245,17 +234,16 @@ function markSelectedOption(optId){
   });
 }
 
-// renderPollState: build UI for voting / counting / showResults
+// render UI for poll (voting / counting / showResults)
 function renderPollState(poll){
   const pollArea = document.getElementById("pollArea");
   const pollContent = document.getElementById("pollContent");
-  const pollTimer = document.getElementById("pollTimer");
   if(!pollContent) return;
   pollArea.style.display = "block";
   pollArea.classList.remove("hidden");
 
-  // header
   pollContent.innerHTML = "";
+  // header
   const header = document.createElement("div"); header.className = "poll-header";
   const qEl = document.createElement("div"); qEl.className = "poll-question"; qEl.textContent = poll.question;
   const rightWrap = document.createElement("div"); rightWrap.style.display="flex"; rightWrap.style.alignItems="center"; rightWrap.style.gap="8px";
@@ -278,19 +266,19 @@ function renderPollState(poll){
   const optionsWrap = document.createElement("div"); optionsWrap.className = "poll-options";
   const total = (poll.options||[]).reduce((s,o)=>s+(o.count||0),0);
   (poll.options||[]).forEach(o=>{
-    const percent = total===0 ? 0 : Math.round(((o.count||0)/total)*100);
+    const percent = total === 0 ? 0 : Math.round(((o.count||0)/total)*100);
     const optEl = document.createElement("div");
     optEl.className = "poll-option";
     optEl.dataset.optId = o.id;
     optEl.innerHTML = `<div class="label">${escapeHtml(o.label)}</div><div class="bar"><i style="width:${percent}%"></i></div><div class="percent">${percent}%</div>`;
     if(poll.state === "voting"){
       optEl.addEventListener("click", ()=> { voteOption(o.id); });
-      // attempt to mark existing vote
+      // try to mark user's existing vote
       const uid = auth.currentUser ? auth.currentUser.uid : null;
       if(uid){
         pollsRef.child("active").child("votes").child(uid).once("value").then(snap=>{
           const v = snap.val();
-          if(v && v.opt === o.id) markSelectedOption(o.id);
+          if(v && v.opt) markSelectedOption(v.opt);
         }).catch(()=>{/*ignore*/});
       }
     } else {
@@ -301,29 +289,30 @@ function renderPollState(poll){
   });
   pollContent.appendChild(optionsWrap);
 
-  // state behavior
+  // state handling
   if(poll.state === "counting"){
-    // show overlay pulsing
     overlay.classList.add("pulse");
     overlay.style.opacity = "1";
     statusEl.textContent = "";
-    updateRemainingToEnd(poll, remEl);
-  } else if(poll.state === "showResults"){
+    // remaining to result calculation not necessary; show overlay
+  } else {
     overlay.classList.remove("pulse");
     overlay.style.opacity = "0";
+  }
+
+  if(poll.state === "showResults"){
     statusEl.textContent = "結果！";
-    // compute removal countdown (showResultsAt + 30s)
+    // compute removal countdown
     const showResultsAt = poll.showResultsAt || Date.now();
     const removalAt = showResultsAt + 30000;
     if(poll._resultInterval) clearInterval(poll._resultInterval);
     poll._resultInterval = setInterval(()=>{
-      const now = Date.now(); const remain = Math.max(0, Math.ceil((removalAt - now)/1000));
+      const now = Date.now();
+      const remain = Math.max(0, Math.ceil((removalAt - now)/1000));
       remEl.textContent = `終了まで ${remain}s`;
       if(remain <= 0) { clearInterval(poll._resultInterval); }
     }, 250);
-    // ensure bars updated (already set via options)
-  } else { // voting
-    overlay.classList.remove("pulse"); overlay.style.opacity = "0";
+  } else if(poll.state === "voting"){
     statusEl.textContent = "";
     if(poll._timerInterval) clearInterval(poll._timerInterval);
     poll._timerInterval = setInterval(()=> {
@@ -334,49 +323,37 @@ function renderPollState(poll){
     }, 300);
   }
 
-  // ensure pollArea visible
+  // ensure visible
   document.getElementById("pollArea").style.display = "block";
 }
 
-// helper: update remaining to endsAt if needed
-function updateRemainingToEnd(poll, element){
-  const now = Date.now(); const remain = Math.max(0, Math.ceil((poll.endsAt - now)/1000));
-  element.textContent = `残り ${remain}s`;
-}
-
-// finalize poll: set counting -> compute -> showResults -> schedule removal & fadeout
+// finalize: set counting -> compute -> set showResults -> schedule removal
 function finalizePollIfNeeded(){
   if(!localActivePoll || finalized) return;
   finalized = true;
-  // mark counting so all clients show overlay
-  pollsRef.child("active").update({ state: "counting" }).catch(()=>{/*ignore*/});
-  // short delay so overlay visible
+  // set counting state
+  pollsRef.child("active").update({ state: "counting" }).catch(()=>{});
+  // short delay so clients show overlay
   setTimeout(()=>{
     pollsRef.child("active").child("votes").once("value").then(snap=>{
       const votes = snap.val() || {};
       const counts = {};
       (localActivePoll.options || []).forEach(o=> counts[o.id]=0);
-      Object.values(votes).forEach(v=> { if(v && v.opt && counts[v.opt] !== undefined) counts[v.opt] += 1; });
-      const newOptions = (localActivePoll.options||[]).map(o=> ({ id:o.id, label:o.label, count: counts[o.id]||0 }));
+      Object.values(votes).forEach(v=>{ if(v && v.opt && counts[v.opt] !== undefined) counts[v.opt] += 1; });
+      const newOptions = (localActivePoll.options || []).map(o=> ({ id:o.id, label:o.label, count: counts[o.id] || 0 }));
       pollsRef.child("active").update({ options: newOptions, state: "showResults", showResultsAt: Date.now() })
         .then(()=>{
-          // schedule fade-out and removal after 30s
+          // after 30s, animate fadeout and remove
           setTimeout(()=>{
-            // animate fadeout locally
             const pollArea = document.getElementById("pollArea");
             if(pollArea) pollArea.classList.add("poll-fadeout");
-            setTimeout(()=>{
-              // remove active poll from DB to restore all clients
-              pollsRef.child("active").remove().catch(()=>{/*ignore*/});
-              finalized = false;
-            }, 600);
+            setTimeout(()=>{ pollsRef.child("active").remove().catch(()=>{}); finalized = false; }, 600);
           }, 30000);
-        }).catch(err=>{ console.warn("finalize update failed", err); finalized=false; });
-    }).catch(err=>{ console.warn("count votes failed", err); finalized=false; });
+        }).catch(err=>{ console.warn("finalize update failed", err); finalized = false; });
+    }).catch(err=>{ console.warn("count votes failed", err); finalized = false; });
   }, 800);
 }
 
-// hide poll UI
 function hidePollUI(){
   const pollArea = document.getElementById("pollArea");
   if(!pollArea) return;
@@ -387,25 +364,22 @@ function hidePollUI(){
   myVoteOpt = null;
 }
 
-// -------------------- Apps Script Upload (profile) --------------------
+// -------------------- Profile Upload (Apps Script) --------------------
 document.getElementById("uploadForm").addEventListener("submit", function(e){
   e.preventDefault();
   const file = document.getElementById("imageFile").files[0];
   if(!file) return alert("画像を選択してください");
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec"; // ← ここを置き換える
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec"; // ← ここを置き換えてください
   const form = new FormData();
   form.append("file", file);
-  fetch(GAS_URL, { method:"POST", body: form })
+  fetch(GAS_URL, { method: "POST", body: form })
     .then(res => res.text())
     .then(url => {
       const user = auth.currentUser;
       if(!user) return alert("ログインしてください");
       user.updateProfile({ photoURL: url })
-        .then(()=> { alert("プロフィール画像を更新しました"); document.getElementById("avatar").src = url; closeModal('mypageModal'); })
-        .catch(err=> alert("更新失敗：" + err.message));
+        .then(()=>{ alert("プロフィール画像を更新しました"); document.getElementById("avatar").src = url; closeModal('mypageModal'); })
+        .catch(err=>alert("更新失敗：" + err.message));
     })
-    .catch(err=> alert("アップロード失敗：" + err.message));
+    .catch(err=>alert("アップロード失敗：" + err.message));
 });
-
-// -------------------- Utility --------------------
-function escapeHtml(str){ if(str===null||str===undefined) return ""; return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
