@@ -1,31 +1,43 @@
-:root {
+:root{
   --max-height: 400px;
   --gap: 10px;
+  --accent: #fff;
+  --border: #ccc;
+  --muted: #888;
+  --btn-height: 44px;
+  --btn-radius: 22px;
+  --font-size: 14px;
 }
 
+/* Base */
+* { box-sizing: border-box; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   padding: 20px;
   background: #f9f9f9;
   color: #222;
+  margin: 0;
 }
 
-/* Buttons */
+/* Auth buttons */
 #authButtons { margin-bottom: 12px; }
 button {
   padding: 8px 12px;
   margin: 5px;
   cursor: pointer;
-  border: 1px solid #ccc;
-  background: #fff;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--accent);
+  border-radius: 8px;
+  font-size: var(--font-size);
 }
+
+/* Row helper */
 .row { margin-top: 10px; }
 
 /* Comments container: newest on top (prepend) */
 #commentsContainer {
-  border: 1px solid #ccc;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--accent);
   padding: 10px;
   max-height: var(--max-height);
   display: flex;
@@ -33,6 +45,7 @@ button {
   overflow: hidden;
 }
 
+/* Comments list */
 #comments {
   display: flex;
   flex-direction: column;
@@ -43,14 +56,14 @@ button {
   scroll-behavior: smooth;
 }
 
-/* Each comment */
+/* Individual comment */
 .comment {
   display: flex;
   gap: 10px;
   align-items: center;
   padding: 8px;
   border-bottom: 1px solid #eee;
-  background: #fff;
+  background: var(--accent);
   transition: transform 300ms ease, opacity 300ms ease;
   will-change: transform, opacity;
   opacity: 1;
@@ -68,21 +81,22 @@ button {
   flex-direction: column;
   gap: 4px;
   flex: 1 1 auto;
+  word-break: break-word;
 }
 
 .comment small {
-  color: #888;
+  color: var(--muted);
   font-size: 0.85em;
 }
 
-/* Inserted comment initial state: slightly up and transparent */
+/* Insert animation states */
+/* New item initial (slightly up and transparent) */
 .comment.new {
   opacity: 0;
   transform: translateY(-18px);
 }
 
-/* Prepare shift state for existing comments: they are moved up before new appears,
-   then transition back to natural position (which visually moves them down) */
+/* Prep shift for existing items (moved up), removal triggers transition down */
 .comment._prep-shift {
   transform: translateY(-60px);
 }
@@ -92,6 +106,43 @@ button {
   margin-top: 8px;
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+/* Input field styling: wide, rounded, same height as button */
+#form input[type="text"],
+#form input[type="text"]:focus {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--btn-height);
+  padding: 8px 14px;
+  border-radius: var(--btn-radius);
+  border: 1px solid var(--border);
+  outline: none;
+  background: #fff;
+  font-size: var(--font-size);
+}
+
+/* Send button: match height and roundness */
+#form button {
+  height: var(--btn-height);
+  padding: 0 16px;
+  border-radius: var(--btn-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid #bbb;
+  background: #fff;
+  cursor: pointer;
+  font-size: var(--font-size);
+}
+
+/* Small screens: slightly smaller controls */
+@media (max-width: 420px) {
+  :root { --btn-height: 40px; --btn-radius: 20px; --font-size: 13px; }
+  #form input[type="text"] { height: var(--btn-height); }
+  #form button { height: var(--btn-height); padding: 0 12px; }
 }
 
 /* Modal styles */
@@ -109,8 +160,8 @@ button {
   margin: 8% auto;
   padding: 20px;
   width: 92%;
-  max-width: 420px;
-  border-radius: 8px;
+  max-width: 520px;
+  border-radius: 10px;
   position: relative;
 }
 
@@ -121,7 +172,8 @@ button {
   cursor: pointer;
 }
 
-/* animation cleanup */
+/* Accessibility: respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  .comment, .comment.new, .comment._prep-shift { transition: none; animation: none; }
+  .comment, .comment.new, .comment._prep-shift,
+  #comments, #commentsContainer { transition: none; animation: none; scroll-behavior: auto; }
 }
