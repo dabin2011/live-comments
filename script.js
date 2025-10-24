@@ -2,7 +2,7 @@
 const firebaseConfig = {
   apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -18,6 +18,9 @@ const pollsRef = db.ref("polls");
 const arrivalsRef = db.ref("arrivals");
 const presenceRefRoot = db.ref("presence");
 const callsRef = db.ref("calls");
+
+// Apps Script URL for image upload (replace with your deployed Web App URL)
+const GAS_URL = "https://script.google.com/macros/s/AKfycbXXXXXXXXXXXXXXXXXXXX/exec";
 
 // Constants
 const THREE_HOURS = 3 * 60 * 60 * 1000;
@@ -57,11 +60,17 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.addEventListener('click', e => { if(e.target === modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); } });
   });
 
-  document.getElementById('callCancelBtn').addEventListener('click', ()=>{ closeModal('callRequestPopup'); currentOutgoingCallId = null; });
-  document.getElementById('callSendBtn').addEventListener('click', sendCallRequestFromPopup);
-  document.getElementById('rejectCallBtn').addEventListener('click', respondToIncomingCall.bind(null,'rejected'));
-  document.getElementById('acceptCallBtn').addEventListener('click', respondToIncomingCall.bind(null,'accepted'));
-  document.getElementById('callNotifyClose').addEventListener('click', ()=> closeModal('callNotifyPopup'));
+  // call buttons wiring
+  const cancelBtn = document.getElementById('callCancelBtn');
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ closeModal('callRequestPopup'); currentOutgoingCallId = null; });
+  const sendBtn = document.getElementById('callSendBtn');
+  if(sendBtn) sendBtn.addEventListener('click', sendCallRequestFromPopup);
+  const rejectBtn = document.getElementById('rejectCallBtn');
+  if(rejectBtn) rejectBtn.addEventListener('click', respondToIncomingCall.bind(null,'rejected'));
+  const acceptBtn = document.getElementById('acceptCallBtn');
+  if(acceptBtn) acceptBtn.addEventListener('click', respondToIncomingCall.bind(null,'accepted'));
+  const notifyClose = document.getElementById('callNotifyClose');
+  if(notifyClose) notifyClose.addEventListener('click', ()=> closeModal('callNotifyPopup'));
 
   setupGlobal();
 });
@@ -348,7 +357,7 @@ callsRef.on('child_changed', snap => {
   }
 });
 
-// Polls: ensure listener registered at startup (reuse earlier robust implementation if present)
+// Polls: ensure listener registered at startup (simple implementation)
 let localPollListenerSet = false;
 function ensurePollListener(){
   if(localPollListenerSet) return;
@@ -360,7 +369,6 @@ function ensurePollListener(){
     localActivePoll = data;
     renderPollState(localActivePoll);
     if(localActivePoll.state === 'voting' && Date.now() >= localActivePoll.endsAt){
-      // finalize via your finalize logic if implemented elsewhere
       if(typeof attemptImmediateFinalize === 'function') attemptImmediateFinalize();
     }
   });
@@ -385,5 +393,20 @@ function renderPollState(poll){
 }
 function hidePollUI(){ const pollArea = document.getElementById('pollArea'); if(!pollArea) return; pollArea.style.display='none'; document.getElementById('pollContent').innerHTML=''; }
 
-// Upload placeholder
-function handleUploadForm(e){ e && e.preventDefault(); alert('Upload handler placeholder: replace GAS_URL and handler as needed'); }
+// Upload handler (uses GAS_URL)
+function handleUploadForm(e){
+  e && e.preventDefault();
+  const file = document.getElementById('imageFile').files[0];
+  if(!file) return alert('画像を選択してください');
+  const fd = new FormData(); fd.append('file', file);
+  fetch(https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec, { method: 'POST', body: fd })
+    .then(r => r.text())
+    .then(url => {
+      const user = auth.currentUser;
+      if(!user) return alert('ログインしてください');
+      user.updateProfile({ photoURL: url }).then(()=> {
+        const avatar = document.getElementById('avatar'); if(avatar) avatar.src = url;
+        closeModal('mypageModal');
+      }).catch(err=>alert('更新失敗：' + err.message));
+    }).catch(err=>alert('アップロード失敗：' + err.message));
+}
