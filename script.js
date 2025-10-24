@@ -10,19 +10,58 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
 
 let firstCommentTime = null;
 
+// 認証状態の監視
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById("form").style.display = "block";
+  } else {
+    document.getElementById("form").style.display = "none";
+  }
+});
+
+// 新規登録
+function signUp() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  auth.createUserWithEmailAndPassword(email, password)
+    .then(() => alert("登録成功"))
+    .catch(error => alert(error.message));
+}
+
+// ログイン
+function signIn() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  auth.signInWithEmailAndPassword(email, password)
+    .then(() => alert("ログイン成功"))
+    .catch(error => alert(error.message));
+}
+
+// ログアウト
+function signOut() {
+  auth.signOut().then(() => alert("ログアウトしました"));
+}
+
+// コメント送信
 function sendComment() {
-  const name = document.getElementById("nameInput").value.trim();
+  const user = auth.currentUser;
   const text = document.getElementById("commentInput").value.trim();
-  if (name && text) {
+  if (user && text) {
     const timestamp = Date.now();
-    db.ref("comments").push({ name, text, timestamp });
+    db.ref("comments").push({
+      name: user.email,
+      text,
+      timestamp
+    });
     document.getElementById("commentInput").value = "";
   }
 }
 
+// コメント表示
 db.ref("comments").on("child_added", snapshot => {
   const { name, text, timestamp } = snapshot.val();
 
