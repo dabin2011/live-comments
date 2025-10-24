@@ -12,8 +12,10 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
-let firstCommentTime = null;
+const commentsRef = db.ref("comments");
 const THREE_HOURS = 3 * 60 * 60 * 1000;
+let firstCommentTime = null;
+let loaded = false;
 
 // 認証状態の監視
 auth.onAuthStateChanged(user => {
@@ -80,7 +82,7 @@ function sendComment() {
   const text = document.getElementById("commentInput").value.trim();
   if (user && text) {
     const timestamp = Date.now();
-    db.ref("comments").push({
+    commentsRef.push({
       uid: user.uid,
       name: user.displayName || user.email,
       photo: user.photoURL || "",
@@ -91,14 +93,23 @@ function sendComment() {
   }
 }
 
-// コメント表示（3時間以内のみ）
-db.ref("comments").on("child_added", snapshot => {
-  const { name, text, timestamp, photo } = snapshot.val();
-  const now = Date.now();
+// 最初のコメント時刻を取得
+commentsRef.once("value", snapshot => {
+  let earliest = null;
+  snapshot.forEach(child => {
+    const data = child.val();
+    if (!earliest || data.timestamp < earliest) {
+      earliest = data.timestamp;
+    }
+  });
+  firstCommentTime = earliest || Date.now();
+  loaded = true;
+});
 
-  if (!firstCommentTime || timestamp < firstCommentTime) {
-    firstCommentTime = timestamp;
-  }
+// コメント表示（3時間以内のみ）
+commentsRef.on("child_added", snapshot => {
+  const { name, text, timestamp, photo } = snapshot.val();
+  if (!loaded) return;
 
   if (timestamp - firstCommentTime <= THREE_HOURS) {
     const elapsedMin = Math.floor((timestamp - firstCommentTime) / 60000);
@@ -112,18 +123,18 @@ db.ref("comments").on("child_added", snapshot => {
     `;
     document.getElementById("comments").appendChild(div);
   } else {
-    db.ref("comments").child(snapshot.key).remove();
+    commentsRef.child(snapshot.key).remove();
   }
 });
 
 // 古いコメントを定期的に削除（30分ごと）
 function cleanOldComments() {
   const now = Date.now();
-  db.ref("comments").once("value", snapshot => {
+  commentsRef.once("value", snapshot => {
     snapshot.forEach(child => {
       const data = child.val();
       if (now - data.timestamp > THREE_HOURS) {
-        db.ref("comments").child(child.key).remove();
+        commentsRef.child(child.key).remove();
       }
     });
   });
