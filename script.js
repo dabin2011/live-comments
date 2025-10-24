@@ -15,7 +15,6 @@ const auth = firebase.auth();
 const commentsRef = db.ref("comments");
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 let firstCommentTime = null;
-let loaded = false;
 
 // 認証状態の監視
 auth.onAuthStateChanged(user => {
@@ -25,7 +24,6 @@ auth.onAuthStateChanged(user => {
   if (user) {
     form.style.display = "block";
     mypage.style.display = "block";
-
     document.getElementById("username").textContent = user.displayName || user.email;
     document.getElementById("avatar").src = user.photoURL || "https://via.placeholder.com/100";
   } else {
@@ -38,7 +36,6 @@ auth.onAuthStateChanged(user => {
 function signUp() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
-  if (!email.includes("@")) return alert("正しいメールアドレスを入力してください");
   auth.createUserWithEmailAndPassword(email, password)
     .then(() => alert("登録成功"))
     .catch(error => alert(error.message));
@@ -48,7 +45,6 @@ function signUp() {
 function signIn() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
-  if (!email.includes("@")) return alert("正しいメールアドレスを入力してください");
   auth.signInWithEmailAndPassword(email, password)
     .then(() => alert("ログイン成功"))
     .catch(error => alert(error.message));
@@ -80,11 +76,9 @@ function updateProfile() {
 function sendComment() {
   const user = auth.currentUser;
   const text = document.getElementById("commentInput").value.trim();
+  if (!user || !text) return;
 
-  if (!user) return alert("ログインしてください");
-  if (!text) return alert("コメントを入力してください");
-
-  db.ref("comments").push({
+  commentsRef.push({
     uid: user.uid,
     name: user.displayName || user.email,
     photo: user.photoURL || "",
@@ -93,12 +87,13 @@ function sendComment() {
   }).then(() => {
     console.log("保存成功");
   }).catch(error => {
-    console.error("保存エラー:", error);
-    alert("保存に失敗しました：" + error.message);
+    alert("保存失敗：" + error.message);
   });
+
+  document.getElementById("commentInput").value = "";
 }
 
-// 最初のコメント時刻を取得
+// 最初のコメント時刻を取得してから表示処理を開始
 commentsRef.once("value", snapshot => {
   let earliest = null;
   snapshot.forEach(child => {
@@ -108,28 +103,20 @@ commentsRef.once("value", snapshot => {
     }
   });
   firstCommentTime = earliest || Date.now();
-  loaded = true;
-});
 
-// コメント表示（3時間以内のみ）
-commentsRef.on("child_added", snapshot => {
-  const { name, text, timestamp, photo } = snapshot.val();
-  if (!loaded) return;
-
-  if (timestamp - firstCommentTime <= THREE_HOURS) {
-    const elapsedMin = Math.floor((timestamp - firstCommentTime) / 60000);
-    const elapsedStr = elapsedMin > 0 ? `${elapsedMin}分後` : "開始直後";
-
-    const div = document.createElement("div");
-    div.className = "comment";
-    div.innerHTML = `
-      <img src="${photo || 'https://via.placeholder.com/40'}" width="40" height="40" style="vertical-align:middle;border-radius:50%;">
-      <strong>${name}</strong>: ${text} <span>（${elapsedStr}）</span>
-    `;
-    document.getElementById("comments").appendChild(div);
-  } else {
-    commentsRef.child(snapshot.key).remove();
-  }
+  // コメント表示（child_added）
+  commentsRef.on("child_added", snap => {
+    const { name, text, timestamp, photo } = snap.val();
+    if (timestamp - firstCommentTime <= THREE_HOURS) {
+      const div = document.createElement("div");
+      div.className = "comment";
+      div.innerHTML = `
+        <img src="${photo || 'https://via.placeholder.com/40'}" width="40" height="40" style="vertical-align:middle;border-radius:50%;">
+        <strong>${name}</strong>: ${text}
+      `;
+      document.getElementById("comments").appendChild(div);
+    }
+  });
 });
 
 // 古いコメントを定期的に削除（30分ごと）
