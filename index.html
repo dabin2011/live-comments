@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Liveコメント欄</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2>コメント欄</h2>
+  <div id="comments"></div>
+  <input type="text" id="commentInput" placeholder="コメントを入力">
+  <button onclick="sendComment()">送信</button>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
