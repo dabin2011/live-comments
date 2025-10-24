@@ -3,14 +3,44 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>コメント・アンケート・通話リクエスト（修正版）</title>
+  <title>コメント・アンケート・通話リクエスト（完全版）</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="authButtons">
-    <button id="loginBtn">テストログイン</button>
-    <button id="logoutBtn" style="display:none">ログアウト</button>
-    <button id="mypageBtn" style="display:none">マイページ</button>
+    <button id="loginBtn" onclick="openModal('loginModal')">ログイン</button>
+    <button id="mypageBtn" onclick="openModal('mypageModal')" style="display:none;">マイページ</button>
+    <button id="logoutBtn" onclick="signOut()" style="display:none;">ログアウト</button>
+  </div>
+
+  <!-- Login modal -->
+  <div id="loginModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" data-close="loginModal">&times;</button>
+      <h2>ログイン</h2>
+      <input type="email" id="email" placeholder="メールアドレス" />
+      <input type="password" id="password" placeholder="パスワード" />
+      <div style="margin-top:8px;">
+        <button onclick="signUp()">新規登録</button>
+        <button onclick="signIn()">ログイン</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- My page modal -->
+  <div id="mypageModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" data-close="mypageModal">&times;</button>
+      <h2>マイページ</h2>
+      <p>ようこそ、<span id="username"></span> さん</p>
+      <img id="avatar" src="" alt="avatar" width="96" height="96" style="border-radius:50%;display:block;margin-bottom:8px;" />
+      <input type="text" id="newName" placeholder="新しいユーザー名" />
+      <button onclick="updateProfile()">ユーザー名を更新</button>
+      <form id="uploadForm" enctype="multipart/form-data" style="margin-top:12px;">
+        <input type="file" id="imageFile" name="imageFile" accept="image/*" />
+        <button type="submit">画像アップロード</button>
+      </form>
+    </div>
   </div>
 
   <h2>コメント欄（3時間以内）</h2>
@@ -25,10 +55,10 @@
 
     <div id="comments" aria-live="polite"></div>
 
-    <div id="form" style="display:flex;gap:8px;margin-top:12px;align-items:center;">
+    <div id="form" style="display:flex;gap:8px;align-items:center;margin-top:8px;">
       <input type="text" id="commentInput" placeholder="コメントを入力" />
-      <button id="pollBtn">アンケート作成</button>
-      <button id="sendBtn">送信</button>
+      <button id="pollBtn" onclick="openModal('pollModal')">アンケート</button>
+      <button id="sendBtn" onclick="sendComment()">送信</button>
     </div>
   </div>
 
@@ -49,7 +79,7 @@
     </div>
   </div>
 
-  <!-- simple call popups (kept minimal) -->
+  <!-- Caller popup shown after clicking user icon -->
   <div id="callRequestPopup" class="modal" aria-hidden="true">
     <div class="modal-content small">
       <button class="close" data-close="callRequestPopup">&times;</button>
@@ -61,6 +91,7 @@
     </div>
   </div>
 
+  <!-- Incoming call popup shown to callee -->
   <div id="incomingCallPopup" class="modal" aria-hidden="true">
     <div class="modal-content small">
       <button class="close" data-close="incomingCallPopup">&times;</button>
@@ -72,6 +103,7 @@
     </div>
   </div>
 
+  <!-- Notification popup for caller when rejected/accepted -->
   <div id="callNotifyPopup" class="modal" aria-hidden="true">
     <div class="modal-content small">
       <button class="close" data-close="callNotifyPopup">&times;</button>
@@ -82,7 +114,6 @@
     </div>
   </div>
 
-  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
