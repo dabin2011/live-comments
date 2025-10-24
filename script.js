@@ -26,6 +26,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VX
 // Constants
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 const POLL_DURATION_MS = 30 * 1000;
+const POLL_AFTER_FINISH_DISPLAY_MS = 30 * 1000; // ← 終了後に表示する時間（30秒）
 const ARRIVAL_BANNER_DURATION = 5000;
 const CALL_REQUEST_TIMEOUT_MS = 20 * 1000;
 
@@ -37,6 +38,7 @@ let myPresenceRef = null;
 let currentIncomingCallListener = null;
 let currentOutgoingCallId = null;
 const _pollTimers = new Map(); // timer management
+let _pollRemovalTimeout = null; // 終了後の自動削除タイマー
 
 // Utility
 function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
@@ -72,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if(logoutBtn) logoutBtn.addEventListener('click', async () => {
     try {
       await auth.signOut();
-      // UI will update in onAuthStateChanged
     } catch(err){
       console.error('signOut error', err);
       alert('ログアウトに失敗しました: ' + (err && err.message ? err.message : err));
@@ -276,9 +277,26 @@ function ensurePollListener(){
     localActivePoll = data;
     renderPollState(data);
     if(data.state === 'finished'){
-      if(_pollTimers.has('active')){ clearInterval(_pollTimers.get('active')); _pollTimers.delete('active'); }
-      setTimeout(()=> hidePollUI(), 1200);
+      // 終了になったら 30 秒後に active ノードを削除して UI を隠す（安全に一度だけ）
+      if(_pollRemovalTimeout) { clearTimeout(_pollRemovalTimeout); _pollRemovalTimeout = null; }
+      _pollRemovalTimeout = setTimeout(async () => {
+        try {
+          // active がまだ存在し、かつ finished のままであれば削除
+          const snapCheck = await pollsRef.child('active').once('value');
+          const cur = snapCheck.val();
+          if(cur && cur.state === 'finished') {
+            await pollsRef.child('active').remove();
+          }
+        } catch(err) {
+          console.error('poll removal error', err);
+        } finally {
+          hidePollUI();
+          if(_pollTimers.has('active')){ clearInterval(_pollTimers.get('active')); _pollTimers.delete('active'); }
+          _pollRemovalTimeout = null;
+        }
+      }, POLL_AFTER_FINISH_DISPLAY_MS);
     }
+    // safety: if voting expired, try finalize
     if(data.state === 'voting' && now() >= (data.endsAt||0)) finalizePoll();
   }, err => console.warn('poll listener error', err));
 }
@@ -353,16 +371,18 @@ async function finalizePoll(){
     const snap = await activeRef.once('value');
     const poll = snap.val(); if(!poll) return;
     if(poll.state === 'finished') return;
+    // mark finished (clients will show finished state)
     await activeRef.update({ state: 'finished', finishedAt: now() });
-    await pollsRef.child('history').push(poll);
+    // push to history (store snapshot)
+    await pollsRef.child('history').push(poll).catch(()=>{});
+    // keep UI visible: pollsRef listener will schedule removal after POLL_AFTER_FINISH_DISPLAY_MS
     if(_pollTimers.has('active')){ clearInterval(_pollTimers.get('active')); _pollTimers.delete('active'); }
-    hidePollUI();
   } catch(err){
     console.error('finalizePoll error', err);
   }
 }
 
-// Calls (minimal)
+// Calls (minimal) - unchanged
 function openCallRequestPopup(uid){
   const content = el('callRequestContent'); if(content) content.innerHTML = `<div>ユーザー <strong>${escapeHtml(uid)}</strong> に通話リクエストを送りますか？</div>`;
   window._callTargetUid = uid; openModal('callRequestPopup');
