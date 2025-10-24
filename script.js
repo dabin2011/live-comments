@@ -2,13 +2,17 @@
 const firebaseConfig = {
   apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
   appId: "YOUR_APP_ID"
 };
-firebase.initializeApp(firebaseConfig);
+if(typeof firebase === 'undefined') {
+  console.error('Firebase SDK が読み込まれていません。index.html のスクリプト読み込み順を確認してください。');
+} else if(!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
 // Refs
 const auth = firebase.auth();
@@ -19,7 +23,7 @@ const arrivalsRef = db.ref("arrivals");
 const presenceRefRoot = db.ref("presence");
 const callsRef = db.ref("calls");
 
-// Apps Script URL for image upload (replace with your deployed Web App URL)
+// Apps Script URL for image upload (deploy your Apps Script Web App and paste URL here)
 const GAS_URL = "https://script.google.com/macros/s/AKfycbXXXXXXXXXXXXXXXXXXXX/exec";
 
 // Constants
@@ -42,12 +46,13 @@ let currentOutgoingCallId = null;
 function escapeHtml(s){ if(s==null) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
 function formatTimeOnly(ts){ const d=new Date(ts); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-// Modal helpers and startup
+// Modal helpers and startup (safe: run after DOM ready)
 document.addEventListener('DOMContentLoaded', () => {
   window.openModal = function(id){
     const el = document.getElementById(id); if(!el) return;
     el.classList.add('open'); el.setAttribute('aria-hidden','false');
-    const focusable = el.querySelector('input,button,select,textarea,[tabindex]'); if(focusable) focusable.focus();
+    const focusable = el.querySelector('input,button,select,textarea,[tabindex]');
+    if(focusable) focusable.focus();
   };
   window.closeModal = function(id){
     const el = document.getElementById(id); if(!el) return;
@@ -60,17 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.addEventListener('click', e => { if(e.target === modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); } });
   });
 
-  // call buttons wiring
-  const cancelBtn = document.getElementById('callCancelBtn');
-  if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ closeModal('callRequestPopup'); currentOutgoingCallId = null; });
-  const sendBtn = document.getElementById('callSendBtn');
-  if(sendBtn) sendBtn.addEventListener('click', sendCallRequestFromPopup);
-  const rejectBtn = document.getElementById('rejectCallBtn');
-  if(rejectBtn) rejectBtn.addEventListener('click', respondToIncomingCall.bind(null,'rejected'));
-  const acceptBtn = document.getElementById('acceptCallBtn');
-  if(acceptBtn) acceptBtn.addEventListener('click', respondToIncomingCall.bind(null,'accepted'));
-  const notifyClose = document.getElementById('callNotifyClose');
-  if(notifyClose) notifyClose.addEventListener('click', ()=> closeModal('callNotifyPopup'));
+  // wire call popup buttons (guard for missing elements)
+  const cancelBtn = document.getElementById('callCancelBtn'); if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ closeModal('callRequestPopup'); currentOutgoingCallId = null; });
+  const sendBtn = document.getElementById('callSendBtn'); if(sendBtn) sendBtn.addEventListener('click', sendCallRequestFromPopup);
+  const rejectBtn = document.getElementById('rejectCallBtn'); if(rejectBtn) rejectBtn.addEventListener('click', respondToIncomingCall.bind(null,'rejected'));
+  const acceptBtn = document.getElementById('acceptCallBtn'); if(acceptBtn) acceptBtn.addEventListener('click', respondToIncomingCall.bind(null,'accepted'));
+  const notifyClose = document.getElementById('callNotifyClose'); if(notifyClose) notifyClose.addEventListener('click', ()=> closeModal('callNotifyPopup'));
+
+  // Ensure comment form visible for debugging / when auth not ready
+  const formEl = document.getElementById('form');
+  if(formEl) formEl.style.display = 'flex';
 
   setupGlobal();
 });
@@ -92,15 +96,13 @@ function showArrivalBanner(name){
   banner._hideTimer = setTimeout(()=>{ banner.classList.remove('show'); setTimeout(()=>{ if(!banner.classList.contains('show')) banner.style.display='none'; },300); }, ARRIVAL_BANNER_DURATION);
 }
 
-// Auth + presence
+// Auth + presence (show/hide auth buttons; form always visible)
 auth.onAuthStateChanged(user => {
-  const form = document.getElementById('form');
   const loginBtn = document.getElementById('loginBtn');
   const mypageBtn = document.getElementById('mypageBtn');
   const logoutBtn = document.getElementById('logoutBtn');
 
   if(user){
-    if(form) form.style.display = 'flex';
     if(loginBtn) loginBtn.style.display = 'none';
     if(mypageBtn) mypageBtn.style.display = 'inline-block';
     if(logoutBtn) logoutBtn.style.display = 'inline-block';
@@ -114,7 +116,6 @@ auth.onAuthStateChanged(user => {
     attachPresence(user.uid);
     listenIncomingCalls(user.uid);
   } else {
-    if(form) form.style.display = 'none';
     if(loginBtn) loginBtn.style.display = 'inline-block';
     if(mypageBtn) mypageBtn.style.display = 'none';
     if(logoutBtn) logoutBtn.style.display = 'none';
@@ -139,7 +140,7 @@ function attachPresence(uid){
 function detachPresence(){
   if(myPresenceRef){
     myPresenceRef.set({ online: false, lastSeen: Date.now() }).catch(()=>{});
-    myPresenceRef.onDisconnect().cancel();
+    try{ myPresenceRef.onDisconnect().cancel(); }catch(e){}
     myPresenceRef = null;
   }
 }
@@ -154,7 +155,7 @@ function initComments(){
       const d = cs.val(); if(!d || !d.timestamp) return; if(d.timestamp - firstCommentTime > THREE_HOURS) return;
       prependCommentWithPushAnimation(d);
     });
-  });
+  }, err => { console.warn('comments.once error', err); });
 }
 function prependCommentWithPushAnimation(d){
   const commentsEl = document.getElementById('comments'); if(!commentsEl) return;
@@ -235,6 +236,7 @@ function sendCallRequestFromPopup(){
 // Caller waiting UI + listener
 function showCallerWaiting(callId, toUid){
   const notifyContent = document.getElementById('callNotifyContent');
+  if(!notifyContent) return;
   notifyContent.innerHTML = `<div>通話リクエスト送信中: ${escapeHtml(toUid)}</div><div id="callWaitingState"></div>`;
   openModal('callNotifyPopup');
 
@@ -243,23 +245,23 @@ function showCallerWaiting(callId, toUid){
     const v = snap.val();
     const stateEl = document.getElementById('callWaitingState');
     if(!v){
-      stateEl.textContent = '相手が不在か、リクエストが消去されました';
+      if(stateEl) stateEl.textContent = '相手が不在か、リクエストが消去されました';
       callNode.off('value', listener);
       currentOutgoingCallId = null;
       return;
     }
     if(v.state === 'pending') {
-      stateEl.textContent = '応答待ち...';
+      if(stateEl) stateEl.textContent = '応答待ち...';
     } else if(v.state === 'accepted') {
-      stateEl.textContent = '相手が応答しました。通話を開始してください。';
+      if(stateEl) stateEl.textContent = '相手が応答しました。通話を開始してください。';
       callNode.off('value', listener);
       currentOutgoingCallId = null;
     } else if(v.state === 'rejected') {
-      stateEl.textContent = '通話は拒否されました';
+      if(stateEl) stateEl.textContent = '通話は拒否されました';
       callNode.off('value', listener);
       currentOutgoingCallId = null;
     } else if(v.state === 'canceled') {
-      stateEl.textContent = 'リクエストはキャンセルされました';
+      if(stateEl) stateEl.textContent = 'リクエストはキャンセルされました';
       callNode.off('value', listener);
       currentOutgoingCallId = null;
     }
@@ -279,7 +281,7 @@ function listenIncomingCalls(myUid){
       const online = !!p && !!p.online;
       if(!online) return;
       showIncomingCallPopup(callId, call.from);
-    });
+    }).catch(()=>{});
   });
   callsRef.on('child_changed', snap => {
     const call = snap.val(); if(!call || !auth.currentUser) return;
@@ -299,6 +301,7 @@ let _currentIncomingCallId = null;
 function showIncomingCallPopup(callId, fromUid){
   _currentIncomingCallId = callId;
   const content = document.getElementById('incomingCallContent');
+  if(!content) return;
   content.innerHTML = `<div><strong>${escapeHtml(fromUid)}</strong> から通話のリクエストがあります</div>`;
   openModal('incomingCallPopup');
 
@@ -324,7 +327,6 @@ function respondToIncomingCall(result){
       closeModal('incomingCallPopup');
       if(currentIncomingCallListener) callsRef.child(callId).off('value', currentIncomingCallListener);
       currentIncomingCallListener = null; _currentIncomingCallId = null;
-      // start WebRTC here if implemented
     }).catch(()=>{});
   } else if(result === 'rejected'){
     callsRef.child(callId).update({ state: 'rejected', ts: Date.now() }).then(()=>{
@@ -342,22 +344,16 @@ callsRef.on('child_changed', snap => {
   const myUid = auth.currentUser.uid;
   if(v.from === myUid){
     if(v.state === 'rejected'){
-      document.getElementById('callNotifyContent').innerHTML = `<div>通話は拒否されました</div>`;
-      openModal('callNotifyPopup');
-      currentOutgoingCallId = null;
+      const el = document.getElementById('callNotifyContent'); if(el) el.innerHTML = `<div>通話は拒否されました</div>`; openModal('callNotifyPopup'); currentOutgoingCallId = null;
     } else if(v.state === 'accepted'){
-      document.getElementById('callNotifyContent').innerHTML = `<div>相手が応答しました。通話を開始してください。</div>`;
-      openModal('callNotifyPopup');
-      currentOutgoingCallId = null;
+      const el = document.getElementById('callNotifyContent'); if(el) el.innerHTML = `<div>相手が応答しました。通話を開始してください。</div>`; openModal('callNotifyPopup'); currentOutgoingCallId = null;
     } else if(v.state === 'canceled'){
-      document.getElementById('callNotifyContent').innerHTML = `<div>リクエストはキャンセルされました</div>`;
-      openModal('callNotifyPopup');
-      currentOutgoingCallId = null;
+      const el = document.getElementById('callNotifyContent'); if(el) el.innerHTML = `<div>リクエストはキャンセルされました</div>`; openModal('callNotifyPopup'); currentOutgoingCallId = null;
     }
   }
 });
 
-// Polls: ensure listener registered at startup (simple implementation)
+// Polls: ensure listener registered at startup (simple)
 let localPollListenerSet = false;
 function ensurePollListener(){
   if(localPollListenerSet) return;
@@ -371,11 +367,11 @@ function ensurePollListener(){
     if(localActivePoll.state === 'voting' && Date.now() >= localActivePoll.endsAt){
       if(typeof attemptImmediateFinalize === 'function') attemptImmediateFinalize();
     }
-  });
+  }, err => { console.warn('poll listener error', err); });
   localPollListenerSet = true;
 }
 
-// Minimal poll render (replace with richer UI if you have it)
+// Minimal poll render (replace with richer UI if needed)
 function renderPollState(poll){
   const pollArea = document.getElementById('pollArea'); const pollContent = document.getElementById('pollContent');
   if(!pollArea || !pollContent) return;
@@ -386,12 +382,29 @@ function renderPollState(poll){
   const optionsWrap = document.createElement('div'); optionsWrap.className = 'poll-options';
   (poll.options||[]).forEach(o => {
     const optEl = document.createElement('div'); optEl.className = 'poll-option';
-    optEl.innerHTML = `<div>${escapeHtml(o.label)}</div><div class="bar"><i style="width:${(o.count||0)}%"></i></div><div class="percent">${o.count||0}</div>`;
+    const total = (poll.options||[]).reduce((s,x)=>s + (x.count||0),0);
+    const pct = total === 0 ? 0 : Math.round(((o.count||0)/total)*100);
+    optEl.innerHTML = `<div>${escapeHtml(o.label)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="percent">${pct}%</div>`;
+    if(poll.state === 'voting'){
+      optEl.addEventListener('click', ()=> voteOption(o.id));
+    } else {
+      optEl.classList.add('disabled');
+    }
     optionsWrap.appendChild(optEl);
   });
   pollContent.appendChild(optionsWrap);
 }
-function hidePollUI(){ const pollArea = document.getElementById('pollArea'); if(!pollArea) return; pollArea.style.display='none'; document.getElementById('pollContent').innerHTML=''; }
+function hidePollUI(){ const pollArea = document.getElementById('pollArea'); if(!pollArea) return; pollArea.style.display='none'; const pc = document.getElementById('pollContent'); if(pc) pc.innerHTML=''; }
+
+// Vote (simple)
+function voteOption(optId){
+  const user = auth.currentUser; if(!user) return alert('ログインしてください'); if(!localActivePoll) return;
+  if(localActivePoll.state !== 'voting') return;
+  const uid = user.uid;
+  pollsRef.child('active').child('votes').child(uid).set({ opt: optId, at: Date.now(), name: user.displayName || user.email })
+    .then(()=> { myVoteOpt = optId; document.querySelectorAll('.poll-option').forEach(el=> el.classList.toggle('selected', el.dataset.optId === optId)); })
+    .catch(err=> console.warn('vote failed', err));
+}
 
 // Upload handler (uses GAS_URL)
 function handleUploadForm(e){
