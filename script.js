@@ -80,7 +80,9 @@ function updateProfile() {
 function sendComment() {
   const user = auth.currentUser;
   const text = document.getElementById("commentInput").value.trim();
-  if (!user || !text) return;
+
+  if (!user) return alert("ログインしてください");
+  if (!text) return alert("コメントを入力してください");
 
   db.ref("comments").push({
     uid: user.uid,
@@ -91,7 +93,8 @@ function sendComment() {
   }).then(() => {
     console.log("保存成功");
   }).catch(error => {
-    alert("保存エラー：" + error.message);
+    console.error("保存エラー:", error);
+    alert("保存に失敗しました：" + error.message);
   });
 }
 
