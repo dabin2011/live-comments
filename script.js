@@ -1,8 +1,8 @@
 // ====== Firebase 設定を置き換えてください ======
 const firebaseConfig = {
-  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
+  apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -15,6 +15,8 @@ const db = firebase.database();
 const commentsRef = db.ref("comments");
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 let firstCommentTime = null;
+let _prevAuthUser = null;
+const ARRIVAL_BANNER_DURATION = 5000;
 
 // ---------- モーダル制御 ----------
 function openModal(id) {
@@ -36,7 +38,24 @@ window.onclick = function(event) {
   });
 };
 
-// ---------- 認証状態の監視（ボタン切替・表示更新） ----------
+// ---------- Arrival banner ----------
+function showArrivalBanner(name) {
+  const banner = document.getElementById("arrivalBanner");
+  if (!banner) return;
+  const safeName = name ? escapeHtml(name) : "ゲスト";
+  banner.textContent = `${safeName}さんが配信を視聴しに来ました`;
+  banner.style.display = "block";
+  banner.classList.add("show");
+  if (banner._hideTimer) clearTimeout(banner._hideTimer);
+  banner._hideTimer = setTimeout(() => {
+    banner.classList.remove("show");
+    setTimeout(() => {
+      if (!banner.classList.contains("show")) banner.style.display = "none";
+    }, 300);
+  }, ARRIVAL_BANNER_DURATION);
+}
+
+// ---------- 認証状態の監視（ボタン切替・到着バナー表示） ----------
 auth.onAuthStateChanged(user => {
   const form = document.getElementById("form");
   const loginBtn = document.getElementById("loginBtn");
@@ -50,6 +69,11 @@ auth.onAuthStateChanged(user => {
     logoutBtn.style.display = "inline-block";
     document.getElementById("username").textContent = user.displayName || user.email;
     document.getElementById("avatar").src = user.photoURL || "";
+
+    // 未ログイン状態からログインになった瞬間のみ到着バナーを表示
+    if (!_prevAuthUser) {
+      showArrivalBanner(user.displayName || user.email);
+    }
   } else {
     form.style.display = "none";
     loginBtn.style.display = "inline-block";
@@ -58,6 +82,8 @@ auth.onAuthStateChanged(user => {
     document.getElementById("avatar").src = "";
     document.getElementById("username").textContent = "";
   }
+
+  _prevAuthUser = user;
 });
 
 // ---------- 認証操作 ----------
@@ -150,7 +176,6 @@ initComments();
 // ---------- 新しいコメントを先頭に挿入し、既存コメントを下へ押し出す動作 ----------
 function prependCommentWithPushAnimation(data) {
   const commentsEl = document.getElementById("comments");
-  const container = document.getElementById("commentsContainer");
 
   // 既存コメントを上に引き上げる準備クラスを付与
   const existing = Array.from(commentsEl.children);
@@ -210,7 +235,7 @@ document.getElementById("uploadForm").addEventListener("submit", function(e) {
   const reader = new FileReader();
   reader.onload = function() {
     // YOUR_GAS_SCRIPT_URL をデプロイ済みGASのURLに置き換えてください
-    fetch("https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec", {
+    fetch("YOUR_GAS_SCRIPT_URL", {
       method: "POST",
       body: reader.result
     })
