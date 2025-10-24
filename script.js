@@ -17,7 +17,19 @@ const THREE_HOURS = 3 * 60 * 60 * 1000;
 
 // 認証状態の監視
 auth.onAuthStateChanged(user => {
-  document.getElementById("form").style.display = user ? "block" : "none";
+  const form = document.getElementById("form");
+  const mypage = document.getElementById("mypage");
+
+  if (user) {
+    form.style.display = "block";
+    mypage.style.display = "block";
+
+    document.getElementById("username").textContent = user.displayName || user.email;
+    document.getElementById("avatar").src = user.photoURL || "https://via.placeholder.com/100";
+  } else {
+    form.style.display = "none";
+    mypage.style.display = "none";
+  }
 });
 
 // 新規登録
@@ -45,6 +57,23 @@ function signOut() {
   auth.signOut().then(() => alert("ログアウトしました"));
 }
 
+// プロフィール更新
+function updateProfile() {
+  const user = auth.currentUser;
+  const newName = document.getElementById("newName").value.trim();
+  const newPhoto = document.getElementById("newPhoto").value.trim();
+
+  user.updateProfile({
+    displayName: newName || user.displayName,
+    photoURL: newPhoto || user.photoURL
+  }).then(() => {
+    alert("プロフィールを更新しました");
+    location.reload();
+  }).catch(error => {
+    alert("更新エラー：" + error.message);
+  });
+}
+
 // コメント送信
 function sendComment() {
   const user = auth.currentUser;
@@ -53,7 +82,8 @@ function sendComment() {
     const timestamp = Date.now();
     db.ref("comments").push({
       uid: user.uid,
-      name: user.email,
+      name: user.displayName || user.email,
+      photo: user.photoURL || "",
       text,
       timestamp
     });
@@ -63,7 +93,7 @@ function sendComment() {
 
 // コメント表示（3時間以内のみ）
 db.ref("comments").on("child_added", snapshot => {
-  const { name, text, timestamp } = snapshot.val();
+  const { name, text, timestamp, photo } = snapshot.val();
   const now = Date.now();
 
   if (!firstCommentTime || timestamp < firstCommentTime) {
@@ -76,10 +106,12 @@ db.ref("comments").on("child_added", snapshot => {
 
     const div = document.createElement("div");
     div.className = "comment";
-    div.innerHTML = `<strong>${name}</strong>: ${text} <span>（${elapsedStr}）</span>`;
+    div.innerHTML = `
+      <img src="${photo || 'https://via.placeholder.com/40'}" width="40" height="40" style="vertical-align:middle;border-radius:50%;">
+      <strong>${name}</strong>: ${text} <span>（${elapsedStr}）</span>
+    `;
     document.getElementById("comments").appendChild(div);
   } else {
-    // 古いコメントは削除
     db.ref("comments").child(snapshot.key).remove();
   }
 });
