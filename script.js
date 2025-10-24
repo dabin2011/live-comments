@@ -319,11 +319,10 @@ function voteOption(optId) {
 async function finalizePoll() {
   const activeRef = pollsRef.child('active');
   try { const snap = await activeRef.once('value'); const poll = snap.val(); if (!poll) return; if (poll.state === 'finished') return; await activeRef.update({ state: 'finished', finishedAt: now() }); await pollsRef.child('history').push(poll).catch(() => { }); if (_pollTimers.has('active')) { clearInterval(_pollTimers.get('active')); _pollTimers.delete('active'); } } catch (err) { console.error('finalizePoll error', err); }
-  
+
 // ----------------- Calls (core hooks left minimal — integrate existing code) -----------------
 function openCallRequestPopup(uid){ const content = el('callRequestContent'); if(content) content.innerHTML = `<div>ユーザー <strong>${escapeHtml(uid)}</strong> に通話リクエストを送りますか？</div>`; window._callTargetUid = uid; openModal('callRequestPopup'); }
-// The detailed calls / WebRTC functions from earlier versions should be included here unchanged in your full project.
-// For brevity, assume sendCallRequestFromPopup, listenIncomingCalls, startLocalAudioAndCreateOffer, startLocalAudioAndAnswer, hangupCall, etc. are present as implemented previously.
+// The detailed calls / WebRTC functions from earlier versions should be included in your full project (startLocalAudioAndCreateOffer, startLocalAudioAndAnswer, hangupCall, etc.)
 
 // Upload handler
 function handleUploadForm(e) {
@@ -339,22 +338,23 @@ function handleUploadForm(e) {
 
 // ----------------- Game features (将棋) -----------------
 
-// Host rules: any logged-in user may start a new game. The first user who successfully creates the game becomes the host for that game.
+// Rules: anyone logged in can start a game. The first user who creates that game becomes its host (hostUid).
+// Multiple parallel games are allowed; each new game node is independent.
+
 function isHost() {
   if (gameLocalState && gameLocalState.hostUid) { return !!auth.currentUser && auth.currentUser.uid === gameLocalState.hostUid; }
-  // no game yet: logged-in user can start and will become host
+  // if no local game created yet, any logged-in user can start and will become host for the created game
   return !!auth.currentUser;
 }
 
 async function startGameByHost() {
   if (!auth.currentUser) return alert('ゲーム開始はログインが必要です');
-  // prevent creating another game if one is already active locally
-  if (currentGameId) return alert('既にゲームが存在します。既存のゲームに参加してください。');
+  // Allow any logged-in user to create/start a new game.
   const chosen = document.querySelector('.gameChoice[data-selected="true"]');
   if (!chosen) return alert('ゲームを選択してください');
   const gameType = chosen.getAttribute('data-game');
   const spectatorsAllowed = !!el('publicGame')?.checked;
-  // create game node — the first to write becomes host
+  // create a new game node; the first user to call this for that node is recorded as hostUid
   const gid = gamesRef.push().key;
   const gameObj = {
     id: gid,
@@ -452,7 +452,7 @@ function renderShogiBoard(gid, shogiState) {
   container.innerHTML = '';
   const boardWrap = document.createElement('div'); boardWrap.className = 'shogiBoard';
   const size = 9;
-  const grid = document.createElement('div'); grid.style.display = 'grid'; grid.style.gridTemplateColumns = `repeat(${size},1fr)`; grid.style.gap = '2px';
+  const grid = document.createElement('div'); grid.style.display='grid'; grid.style.gridTemplateColumns = `repeat(${size},1fr)`; grid.style.gap = '2px';
   grid.style.width = '100%'; grid.style.height = '100%';
   let selected = null;
   const board = shogiState.board || initialShogiBoard();
@@ -549,7 +549,8 @@ function closeGameUI() {
 }
 
 function initGameAutoSubscribe() {
-  gamesRef.orderByChild('status').equalTo('running').limitToLast(1).on('child_added', snap => {
+  // Show running games automatically to new visitors; multiple games allowed.
+  gamesRef.orderByChild('status').equalTo('running').limitToLast(5).on('child_added', snap => {
     const g = snap.val(); if (!g) return; openGameUI(g.id, g);
   });
   gamesRef.on('child_changed', snap => { const g = snap.val(); if (!g) return; if (g.status === 'running') openGameUI(g.id, g); });
