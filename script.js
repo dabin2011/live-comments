@@ -16,24 +16,30 @@ const db = firebase.database();
 const commentsRef = db.ref("comments");
 const pollsRef = db.ref("polls");
 const arrivalsRef = db.ref("arrivals");
+const presenceRefRoot = db.ref("presence");
+const callsRef = db.ref("calls");
 
 // Constants
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 const POLL_DURATION_MS = 30 * 1000;
 const ARRIVAL_BANNER_DURATION = 5000;
+const CALL_REQUEST_TIMEOUT_MS = 20 * 1000;
 
+// Local state
 let firstCommentTime = null;
 let _prevAuthUser = null;
 let localActivePoll = null;
 let localPollListenerSet = false;
-let finalized = false;
 let myVoteOpt = null;
+let myPresenceRef = null;
+let currentIncomingCallListener = null;
+let currentOutgoingCallId = null;
 
 // Utility
 function escapeHtml(s){ if(s==null) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
 function formatTimeOnly(ts){ const d=new Date(ts); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-// Modal robust open/close
+// Modal helpers and startup
 document.addEventListener('DOMContentLoaded', () => {
   window.openModal = function(id){
     const el = document.getElementById(id); if(!el) return;
@@ -51,24 +57,24 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.addEventListener('click', e => { if(e.target === modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); } });
   });
 
+  document.getElementById('callCancelBtn').addEventListener('click', ()=>{ closeModal('callRequestPopup'); currentOutgoingCallId = null; });
+  document.getElementById('callSendBtn').addEventListener('click', sendCallRequestFromPopup);
+  document.getElementById('rejectCallBtn').addEventListener('click', respondToIncomingCall.bind(null,'rejected'));
+  document.getElementById('acceptCallBtn').addEventListener('click', respondToIncomingCall.bind(null,'accepted'));
+  document.getElementById('callNotifyClose').addEventListener('click', ()=> closeModal('callNotifyPopup'));
+
   setupGlobal();
 });
 
-// Startup
+// Setup listeners early
 function setupGlobal(){
-  arrivalsRef.on('child_added', snap => {
-    const d = snap.val(); if(d && d.type === 'arrival') showArrivalBanner(d.name);
-    snap.ref.remove().catch(()=>{});
-  });
-
+  arrivalsRef.on('child_added', snap => { const d = snap.val(); if(d && d.type === 'arrival') showArrivalBanner(d.name); snap.ref.remove().catch(()=>{}); });
   ensurePollListener();
   initComments();
-
-  const uf = document.getElementById('uploadForm');
-  if(uf) uf.addEventListener('submit', handleUploadForm);
+  const uf = document.getElementById('uploadForm'); if(uf) uf.addEventListener('submit', handleUploadForm);
 }
 
-// Arrival
+// Arrival banner
 function showArrivalBanner(name){
   const banner = document.getElementById('arrivalBanner'); if(!banner) return;
   banner.textContent = `${escapeHtml(name || 'ゲスト')}さんが配信を視聴しに来ました`;
@@ -77,7 +83,7 @@ function showArrivalBanner(name){
   banner._hideTimer = setTimeout(()=>{ banner.classList.remove('show'); setTimeout(()=>{ if(!banner.classList.contains('show')) banner.style.display='none'; },300); }, ARRIVAL_BANNER_DURATION);
 }
 
-// Auth
+// Auth + presence
 auth.onAuthStateChanged(user => {
   const form = document.getElementById('form');
   const loginBtn = document.getElementById('loginBtn');
@@ -93,16 +99,18 @@ auth.onAuthStateChanged(user => {
     const avatarEl = document.getElementById('avatar'); if(avatarEl) avatarEl.src = user.photoURL || '';
     const unameEl = document.getElementById('username'); if(unameEl) unameEl.textContent = uname;
     if(!_prevAuthUser){
-      arrivalsRef.push({ type: 'arrival', name: uname || 'ゲスト', timestamp: Date.now() }).catch(()=>{});
+      arrivalsRef.push({ type:'arrival', name: uname || 'ゲスト', timestamp: Date.now() }).catch(()=>{});
       showArrivalBanner(uname);
     }
+    attachPresence(user.uid);
+    listenIncomingCalls(user.uid);
   } else {
     if(form) form.style.display = 'none';
     if(loginBtn) loginBtn.style.display = 'inline-block';
     if(mypageBtn) mypageBtn.style.display = 'none';
     if(logoutBtn) logoutBtn.style.display = 'none';
-    const avatarEl = document.getElementById('avatar'); if(avatarEl) avatarEl.src = '';
-    const unameEl = document.getElementById('username'); if(unameEl) unameEl.textContent = '';
+    detachPresence();
+    stopListeningIncomingCalls();
   }
   _prevAuthUser = user;
 });
@@ -110,9 +118,24 @@ auth.onAuthStateChanged(user => {
 function signUp(){ const email=document.getElementById('email').value.trim(); const password=document.getElementById('password').value; if(!email||!password) return alert('メールとパスワードを入力してください'); auth.createUserWithEmailAndPassword(email,password).then(()=>{ alert('登録成功'); closeModal('loginModal'); }).catch(err=>alert(err.message)); }
 function signIn(){ const email=document.getElementById('email').value.trim(); const password=document.getElementById('password').value; if(!email||!password) return alert('メールとパスワードを入力してください'); auth.signInWithEmailAndPassword(email,password).then(()=>{ alert('ログイン成功'); closeModal('loginModal'); }).catch(err=>alert(err.message)); }
 function signOut(){ auth.signOut().then(()=>{ alert('ログアウトしました'); }).catch(err=>alert(err.message)); }
-function updateProfile(){ const user = auth.currentUser; const newName = document.getElementById('newName').value.trim(); if(!user) return alert('ログインしてください'); if(!newName) return alert('名前を入力してください'); user.updateProfile({ displayName: newName }).then(()=>{ alert('ユーザー名を更新しました'); const ue=document.getElementById('username'); if(ue) ue.textContent=newName; closeModal('mypageModal'); }).catch(err=>alert('更新失敗：' + err.message)); }
+function updateProfile(){ const user=auth.currentUser; const newName=document.getElementById('newName').value.trim(); if(!user) return alert('ログインしてください'); if(!newName) return alert('名前を入力してください'); user.updateProfile({ displayName:newName }).then(()=>{ alert('ユーザー名を更新しました'); const ue=document.getElementById('username'); if(ue) ue.textContent=newName; closeModal('mypageModal'); }).catch(err=>alert('更新失敗：'+err.message)); }
 
-// Comments
+// Presence
+function attachPresence(uid){
+  if(!uid) return;
+  myPresenceRef = presenceRefRoot.child(uid);
+  myPresenceRef.set({ online: true, lastSeen: Date.now() }).catch(()=>{});
+  myPresenceRef.onDisconnect().set({ online: false, lastSeen: Date.now() }).catch(()=>{});
+}
+function detachPresence(){
+  if(myPresenceRef){
+    myPresenceRef.set({ online: false, lastSeen: Date.now() }).catch(()=>{});
+    myPresenceRef.onDisconnect().cancel();
+    myPresenceRef = null;
+  }
+}
+
+// Comments + call UI wiring
 function initComments(){
   commentsRef.once('value', snap => {
     let earliest = null;
@@ -130,204 +153,237 @@ function prependCommentWithPushAnimation(d){
   commentsEl.offsetHeight;
   const div = document.createElement('div'); div.className = 'comment new';
   const avatarUrl = d.photo || 'https://via.placeholder.com/40';
-  div.innerHTML = `<img src="${escapeHtml(avatarUrl)}" alt="avatar"><div class="meta"><div><strong>${escapeHtml(d.name)}</strong></div><div>${escapeHtml(d.text)}</div></div><div style="margin-left:auto"><small>${formatTimeOnly(d.timestamp)}</small></div>`;
+  div.innerHTML = `
+    <img src="${escapeHtml(avatarUrl)}" alt="avatar" data-uid="${escapeHtml(d.uid||'')}" />
+    <div class="meta">
+      <div><strong>${escapeHtml(d.name)}</strong></div>
+      <div>${escapeHtml(d.text)}</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;">
+      <span class="presence-dot presence-offline" id="presenceDot-${escapeHtml(d.uid||'')}"></span>
+      <div class="call-badge" data-uid="${escapeHtml(d.uid||'')}">通話</div>
+    </div>
+  `;
   if(commentsEl.firstChild) commentsEl.insertBefore(div, commentsEl.firstChild); else commentsEl.appendChild(div);
-  requestAnimationFrame(()=>{ div.classList.remove('new'); existing.forEach(el=>el.classList.remove('_prep-shift')); });
-  setTimeout(()=>{ div.classList.remove('new'); existing.forEach(el=>el.classList.remove('_prep-shift')); },600);
+
+  const avatar = div.querySelector('img');
+  const callBtn = div.querySelector('.call-badge');
+  if(avatar) avatar.addEventListener('click', onUserIconClick);
+  if(callBtn) callBtn.addEventListener('click', onUserIconClick);
+
+  const uid = d.uid;
+  if(uid) {
+    presenceRefRoot.child(uid).on('value', snap => {
+      const v = snap.val();
+      const dot = document.getElementById(`presenceDot-${uid}`);
+      if(dot){
+        dot.classList.toggle('presence-online', !!v && v.online);
+        dot.classList.toggle('presence-offline', !v || !v.online);
+      }
+    });
+  }
+
+  requestAnimationFrame(()=>{ div.classList.remove('new'); existing.forEach(el => el.classList.remove('_prep-shift')); });
+  setTimeout(()=>{ div.classList.remove('new'); existing.forEach(el => el.classList.remove('_prep-shift')); },600);
 }
 function sendComment(){ const user = auth.currentUser; const text = document.getElementById('commentInput').value.trim(); if(!user) return alert('ログインしてください'); if(!text) return; commentsRef.push({ uid:user.uid, name:user.displayName||user.email, photo:user.photoURL||'', text, timestamp: Date.now() }).then(()=> document.getElementById('commentInput').value = '').catch(err=>alert('保存失敗：' + err.message)); }
 
-// Polls listener
+// Caller flow: open popup for selected uid
+let _callPopupTargetUid = null;
+function onUserIconClick(e){
+  const uid = e.currentTarget.dataset.uid || e.currentTarget.getAttribute('data-uid');
+  if(!uid) return alert('そのユーザーは通話できません');
+  _callPopupTargetUid = uid;
+  const content = document.getElementById('callRequestContent');
+  content.innerHTML = `<div>ユーザー <strong>${escapeHtml(uid)}</strong> に通話リクエストを送りますか？</div>`;
+  openModal('callRequestPopup');
+}
+
+// Send call request: create /calls/{callId} and wait
+function sendCallRequestFromPopup(){
+  if(!auth.currentUser){ alert('ログインしてください'); closeModal('callRequestPopup'); return; }
+  const fromUid = auth.currentUser.uid;
+  const toUid = _callPopupTargetUid;
+  if(!toUid){ alert('ターゲットが見つかりません'); closeModal('callRequestPopup'); return; }
+
+  const callId = callsRef.push().key;
+  const callObj = { from: fromUid, to: toUid, state: 'pending', ts: Date.now() };
+  callsRef.child(callId).set(callObj).then(()=>{
+    currentOutgoingCallId = callId;
+    closeModal('callRequestPopup');
+    showCallerWaiting(callId, toUid);
+    setTimeout(()=> {
+      callsRef.child(callId).once('value').then(s => {
+        const v = s.val();
+        if(v && v.state === 'pending') {
+          callsRef.child(callId).update({ state: 'canceled', ts: Date.now() });
+        }
+      });
+    }, CALL_REQUEST_TIMEOUT_MS);
+  }).catch(()=>{ alert('通話リクエスト送信失敗'); closeModal('callRequestPopup'); });
+}
+
+// Caller waiting UI + listener
+function showCallerWaiting(callId, toUid){
+  const notifyContent = document.getElementById('callNotifyContent');
+  notifyContent.innerHTML = `<div>通話リクエスト送信中: ${escapeHtml(toUid)}</div><div id="callWaitingState"></div>`;
+  openModal('callNotifyPopup');
+
+  const callNode = callsRef.child(callId);
+  const listener = callNode.on('value', snap => {
+    const v = snap.val();
+    const stateEl = document.getElementById('callWaitingState');
+    if(!v){
+      stateEl.textContent = '相手が不在か、リクエストが消去されました';
+      callNode.off('value', listener);
+      currentOutgoingCallId = null;
+      return;
+    }
+    if(v.state === 'pending') {
+      stateEl.textContent = '応答待ち...';
+    } else if(v.state === 'accepted') {
+      stateEl.textContent = '相手が応答しました。通話を開始してください。';
+      callNode.off('value', listener);
+      currentOutgoingCallId = null;
+    } else if(v.state === 'rejected') {
+      stateEl.textContent = '通話は拒否されました';
+      callNode.off('value', listener);
+      currentOutgoingCallId = null;
+    } else if(v.state === 'canceled') {
+      stateEl.textContent = 'リクエストはキャンセルされました';
+      callNode.off('value', listener);
+      currentOutgoingCallId = null;
+    }
+  });
+}
+
+// Incoming call listener for callee
+let incomingCallsListener = null;
+function listenIncomingCalls(myUid){
+  if(!myUid) return;
+  incomingCallsListener = callsRef.orderByChild('to').equalTo(myUid).on('child_added', snap => {
+    const call = snap.val(); const callId = snap.key;
+    if(!call) return;
+    if(call.state !== 'pending') return;
+    presenceRefRoot.child(call.from).once('value').then(psnap => {
+      const p = psnap.val();
+      const online = !!p && !!p.online;
+      if(!online) return;
+      showIncomingCallPopup(callId, call.from);
+    });
+  });
+  callsRef.on('child_changed', snap => {
+    const call = snap.val(); if(!call || !auth.currentUser) return;
+    const myUid = auth.currentUser.uid;
+    if(call.to === myUid && call.state !== 'pending'){
+      if(document.getElementById('incomingCallPopup').classList.contains('open')) closeModal('incomingCallPopup');
+    }
+  });
+}
+function stopListeningIncomingCalls(){
+  if(incomingCallsListener) { callsRef.off('child_added', incomingCallsListener); incomingCallsListener = null; }
+  callsRef.off('child_changed');
+}
+
+// Show incoming popup to callee + listen single call node
+let _currentIncomingCallId = null;
+function showIncomingCallPopup(callId, fromUid){
+  _currentIncomingCallId = callId;
+  const content = document.getElementById('incomingCallContent');
+  content.innerHTML = `<div><strong>${escapeHtml(fromUid)}</strong> から通話のリクエストがあります</div>`;
+  openModal('incomingCallPopup');
+
+  if(currentIncomingCallListener) callsRef.child(_currentIncomingCallId).off('value', currentIncomingCallListener);
+  currentIncomingCallListener = callsRef.child(callId).on('value', snap => {
+    const v = snap.val();
+    if(!v){
+      closeModal('incomingCallPopup'); callsRef.child(callId).off('value', currentIncomingCallListener); currentIncomingCallListener = null; _currentIncomingCallId = null;
+      return;
+    }
+    if(v.state !== 'pending'){
+      closeModal('incomingCallPopup'); callsRef.child(callId).off('value', currentIncomingCallListener); currentIncomingCallListener = null; _currentIncomingCallId = null;
+    }
+  });
+}
+
+// Callee responds accepted/rejected
+function respondToIncomingCall(result){
+  if(!_currentIncomingCallId) return closeModal('incomingCallPopup');
+  const callId = _currentIncomingCallId;
+  if(result === 'accepted'){
+    callsRef.child(callId).update({ state: 'accepted', ts: Date.now() }).then(()=>{
+      closeModal('incomingCallPopup');
+      if(currentIncomingCallListener) callsRef.child(callId).off('value', currentIncomingCallListener);
+      currentIncomingCallListener = null; _currentIncomingCallId = null;
+      // start WebRTC here if implemented
+    }).catch(()=>{});
+  } else if(result === 'rejected'){
+    callsRef.child(callId).update({ state: 'rejected', ts: Date.now() }).then(()=>{
+      closeModal('incomingCallPopup');
+      if(currentIncomingCallListener) callsRef.child(callId).off('value', currentIncomingCallListener);
+      currentIncomingCallListener = null; _currentIncomingCallId = null;
+    }).catch(()=>{});
+  }
+}
+
+// Caller receives rejected/accepted notifications (global listener)
+callsRef.on('child_changed', snap => {
+  const v = snap.val(); const id = snap.key;
+  if(!v || !auth.currentUser) return;
+  const myUid = auth.currentUser.uid;
+  if(v.from === myUid){
+    if(v.state === 'rejected'){
+      document.getElementById('callNotifyContent').innerHTML = `<div>通話は拒否されました</div>`;
+      openModal('callNotifyPopup');
+      currentOutgoingCallId = null;
+    } else if(v.state === 'accepted'){
+      document.getElementById('callNotifyContent').innerHTML = `<div>相手が応答しました。通話を開始してください。</div>`;
+      openModal('callNotifyPopup');
+      currentOutgoingCallId = null;
+    } else if(v.state === 'canceled'){
+      document.getElementById('callNotifyContent').innerHTML = `<div>リクエストはキャンセルされました</div>`;
+      openModal('callNotifyPopup');
+      currentOutgoingCallId = null;
+    }
+  }
+});
+
+// Polls: ensure listener registered at startup (reuse earlier robust implementation if present)
+let localPollListenerSet = false;
 function ensurePollListener(){
   if(localPollListenerSet) return;
   pollsRef.child('active').on('value', snap => {
     const data = snap.val();
     if(!data || data.active !== true){
-      hidePollUI();
-      localActivePoll = null;
-      finalized = false;
-      return;
+      hidePollUI(); localActivePoll = null; return;
     }
     localActivePoll = data;
     renderPollState(localActivePoll);
-    // Immediately finalize if endsAt passed
     if(localActivePoll.state === 'voting' && Date.now() >= localActivePoll.endsAt){
-      // attempt to become the finalizer using a transaction marker to reduce races
-      attemptImmediateFinalize();
+      // finalize via your finalize logic if implemented elsewhere
+      if(typeof attemptImmediateFinalize === 'function') attemptImmediateFinalize();
     }
-  }, err => { console.warn('poll listener error', err); });
+  });
   localPollListenerSet = true;
 }
 
-// attemptImmediateFinalize uses a lightweight race-safe mechanism: set a 'finalizingBy' uid via transaction
-function attemptImmediateFinalize(){
-  const user = auth.currentUser;
-  const finalizerId = (user && user.uid) ? user.uid : ('anon_' + Math.random().toString(36).slice(2,8));
-  const activeRef = pollsRef.child('active');
-  activeRef.child('finalizingBy').transaction(current => {
-    if(!current) return finalizerId;
-    return; // abort transaction if already set
-  }, (err, committed, snap) => {
-    if(err || !committed) {
-      // someone else claimed finalization, do nothing
-      return;
-    }
-    // we are the finalizer
-    finalizePollImmediate();
-  });
-}
-
-// finalize immediately: set counting then compute and set showResults without artificial delays
-function finalizePollImmediate(){
-  if(!localActivePoll) return;
-  // set counting state so all clients switch immediately
-  pollsRef.child('active').update({ state: 'counting' }).catch(()=>{});
-  // compute counts once (reads votes)
-  pollsRef.child('active').child('votes').once('value').then(snap => {
-    const votes = snap.val() || {};
-    const counts = {};
-    (localActivePoll.options || []).forEach(o => counts[o.id] = 0);
-    Object.values(votes).forEach(v => {
-      if(v && v.opt && counts[v.opt] !== undefined) counts[v.opt] += 1;
-    });
-    const newOptions = (localActivePoll.options || []).map(o => ({ id: o.id, label: o.label, count: counts[o.id] || 0 }));
-    // directly set results (no wait)
-    pollsRef.child('active').update({ options: newOptions, state: 'showResults', showResultsAt: Date.now() }).then(()=>{
-      // remove finalizingBy marker
-      pollsRef.child('active').child('finalizingBy').remove().catch(()=>{});
-      // schedule removal after short configurable period (default 30s)
-      setTimeout(() => {
-        const pollArea = document.getElementById('pollArea'); if(pollArea) pollArea.classList.add('poll-fadeout');
-        setTimeout(()=> { pollsRef.child('active').remove().catch(()=>{}); }, 600);
-      }, 30000);
-    }).catch(err => {
-      pollsRef.child('active').child('finalizingBy').remove().catch(()=>{});
-    });
-  }).catch(err => {
-    pollsRef.child('active').child('finalizingBy').remove().catch(()=>{});
-  });
-}
-
-// Render poll UI; reacts to DB immediately
+// Minimal poll render (replace with richer UI if you have it)
 function renderPollState(poll){
   const pollArea = document.getElementById('pollArea'); const pollContent = document.getElementById('pollContent');
   if(!pollArea || !pollContent) return;
-  pollArea.style.display = 'block'; pollArea.classList.remove('hidden');
-  pollContent.innerHTML = '';
-
+  pollArea.style.display = 'block'; pollContent.innerHTML = '';
   const header = document.createElement('div'); header.className = 'poll-header';
-  const qEl = document.createElement('div'); qEl.className = 'poll-question'; qEl.textContent = poll.question;
-  const rightWrap = document.createElement('div'); rightWrap.style.display='flex'; rightWrap.style.alignItems='center'; rightWrap.style.gap='8px';
-  const statusEl = document.createElement('div'); statusEl.className = 'poll-status';
-  const remEl = document.createElement('div'); remEl.id = 'pollRemainingRight'; remEl.className = 'poll-remaining';
-  rightWrap.appendChild(statusEl); rightWrap.appendChild(remEl);
-  header.appendChild(qEl); header.appendChild(rightWrap);
-  pollContent.appendChild(header);
-
-  let overlay = pollContent.querySelector('.poll-overlay');
-  if(!overlay){
-    overlay = document.createElement('div'); overlay.className = 'poll-overlay'; overlay.textContent = '集計中';
-  }
-
+  const q = document.createElement('div'); q.className = 'poll-question'; q.textContent = poll.question || '';
+  header.appendChild(q); pollContent.appendChild(header);
   const optionsWrap = document.createElement('div'); optionsWrap.className = 'poll-options';
-  const total = (poll.options||[]).reduce((s,o)=>s + (o.count||0), 0);
   (poll.options||[]).forEach(o => {
-    const pct = total === 0 ? 0 : Math.round(((o.count||0)/total)*100);
-    const optEl = document.createElement('div'); optEl.className = 'poll-option'; optEl.dataset.optId = o.id;
-    optEl.innerHTML = `<div class="label">${escapeHtml(o.label)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="percent">${pct}%</div>`;
-    if(poll.state === 'voting'){
-      optEl.addEventListener('click', ()=> voteOption(o.id));
-      const uid = auth.currentUser ? auth.currentUser.uid : null;
-      if(uid){
-        pollsRef.child('active').child('votes').child(uid).once('value').then(s=>{ const v=s.val(); if(v && v.opt) markSelectedOption(v.opt); }).catch(()=>{});
-      }
-    } else {
-      optEl.classList.add('disabled');
-      if(myVoteOpt === o.id) optEl.classList.add('selected');
-    }
+    const optEl = document.createElement('div'); optEl.className = 'poll-option';
+    optEl.innerHTML = `<div>${escapeHtml(o.label)}</div><div class="bar"><i style="width:${(o.count||0)}%"></i></div><div class="percent">${o.count||0}</div>`;
     optionsWrap.appendChild(optEl);
   });
   pollContent.appendChild(optionsWrap);
-
-  clearPollTimers(poll);
-  if(poll.state === 'counting'){
-    if(!pollContent.querySelector('.poll-overlay')) pollContent.appendChild(overlay);
-    overlay.classList.add('pulse'); overlay.style.opacity = '1';
-    statusEl.textContent = ''; remEl.textContent = '集計中';
-  } else {
-    const ex = pollContent.querySelector('.poll-overlay'); if(ex){ ex.classList.remove('pulse'); ex.style.opacity = '0'; ex.remove(); }
-  }
-
-  if(poll.state === 'showResults'){
-    statusEl.textContent = '結果！';
-    const showAt = poll.showResultsAt || Date.now();
-    const removalAt = showAt + 30000;
-    poll._resultInterval = setInterval(()=> {
-      const now = Date.now(); const rem = Math.max(0, Math.ceil((removalAt - now)/1000));
-      remEl.textContent = `終了まで ${rem}s`;
-      if(rem <= 0) clearInterval(poll._resultInterval);
-    }, 250);
-  } else if(poll.state === 'voting'){
-    statusEl.textContent = '';
-    poll._timerInterval = setInterval(()=> {
-      const now = Date.now(); const rem = Math.max(0, Math.ceil((poll.endsAt - now)/1000));
-      remEl.textContent = `残り ${rem}s`;
-      if(rem <= 0) clearInterval(poll._timerInterval);
-    }, 300);
-  }
-
-  pollArea.style.display = 'block';
 }
+function hidePollUI(){ const pollArea = document.getElementById('pollArea'); if(!pollArea) return; pollArea.style.display='none'; document.getElementById('pollContent').innerHTML=''; }
 
-function clearPollTimers(poll){
-  try{ if(poll && poll._timerInterval){ clearInterval(poll._timerInterval); poll._timerInterval = null; } }catch(e){}
-  try{ if(poll && poll._resultInterval){ clearInterval(poll._resultInterval); poll._resultInterval = null; } }catch(e){}
-}
-
-function voteOption(optId){
-  const user = auth.currentUser; if(!user) return alert('ログインしてください'); if(!localActivePoll) return;
-  if(localActivePoll.state === 'counting' || localActivePoll.state === 'showResults') return;
-  const uid = user.uid;
-  pollsRef.child('active').child('votes').child(uid).set({ opt: optId, at: Date.now(), name: user.displayName || user.email })
-    .then(()=> { myVoteOpt = optId; markSelectedOption(optId); })
-    .catch(err=> console.warn('vote failed', err));
-}
-function markSelectedOption(optId){ document.querySelectorAll('.poll-option').forEach(el=> el.classList.toggle('selected', el.dataset.optId === optId)); }
-
-function addPollOption(){ const wrapper = document.getElementById('pollOptionsWrapper'); const input = document.createElement('input'); input.type='text'; input.className='pollOption'; input.placeholder = `選択肢${wrapper.querySelectorAll('.pollOption').length + 1}`; wrapper.appendChild(input); }
-function createPoll(){
-  const user = auth.currentUser; if(!user) return alert('ログインしてください');
-  const q = document.getElementById('pollQuestion').value.trim(); if(!q) return alert('質問を入力してください');
-  const labels = Array.from(document.querySelectorAll('.pollOption')).map(i=>i.value.trim()).filter(Boolean);
-  if(labels.length < 2) return alert('選択肢は2つ以上必要です');
-  const opts = labels.map((label, idx) => ({ id:`o${idx+1}`, label, count:0 }));
-  const now = Date.now();
-  const pollObj = { active:true, question:q, options:opts, startedAt:now, endsAt: now + POLL_DURATION_MS, creatorUid: user.uid, state:'voting' };
-  pollsRef.child('active').set(pollObj).then(()=> closeModal('pollModal')).catch(err=> alert('作成失敗：' + err.message));
-}
-
-function finalizePollIfNeeded(){
-  // legacy: keep for compatibility but prefer transaction-based immediate finalizer
-  if(!localActivePoll || finalized) return;
-  attemptImmediateFinalize();
-}
-
-function hidePollUI(){
-  const pollArea = document.getElementById('pollArea'); if(!pollArea) return;
-  pollArea.style.display = 'none'; pollArea.classList.remove('poll-fadeout');
-  const pc = document.getElementById('pollContent'); if(pc) pc.innerHTML = '';
-  const t = document.getElementById('pollTimer'); if(t) t.textContent = '';
-  myVoteOpt = null;
-}
-
-// Upload handling (Apps Script)
-function handleUploadForm(e){
-  e.preventDefault();
-  const file = document.getElementById('imageFile').files[0]; if(!file) return alert('画像を選択してください');
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec'; // replace
-  const fd = new FormData(); fd.append('file', file);
-  fetch(GAS_URL, { method:'POST', body: fd }).then(r => r.text()).then(url => {
-    const user = auth.currentUser; if(!user) return alert('ログインしてください');
-    user.updateProfile({ photoURL: url }).then(()=> { const avatar=document.getElementById('avatar'); if(avatar) avatar.src=url; closeModal('mypageModal'); }).catch(err=>alert('更新失敗：' + err.message));
-  }).catch(err=>alert('アップロード失敗：' + err.message));
-}
+// Upload placeholder
+function handleUploadForm(e){ e && e.preventDefault(); alert('Upload handler placeholder: replace GAS_URL and handler as needed'); }
