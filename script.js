@@ -1,5 +1,5 @@
 const firebaseConfig = {
-  apiKey: "1r47xU0zAqbdb3lFZQdUMCZJVbLxx4Vs7",
+  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
   databaseURL: "https://shige-live-default-rtdb.firebaseio.com/", // ← ここ重要！
   projectId: "YOUR_PROJECT_ID",
