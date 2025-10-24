@@ -1,5 +1,5 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
+  apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
   databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
   projectId: "YOUR_PROJECT_ID",
@@ -52,6 +52,7 @@ function sendComment() {
   if (user && text) {
     const timestamp = Date.now();
     db.ref("comments").push({
+      uid: user.uid,
       name: user.email,
       text,
       timestamp
@@ -77,10 +78,13 @@ db.ref("comments").on("child_added", snapshot => {
     div.className = "comment";
     div.innerHTML = `<strong>${name}</strong>: ${text} <span>（${elapsedStr}）</span>`;
     document.getElementById("comments").appendChild(div);
+  } else {
+    // 古いコメントは削除
+    db.ref("comments").child(snapshot.key).remove();
   }
 });
 
-// 古いコメントを削除（30分ごとに実行）
+// 古いコメントを定期的に削除（30分ごと）
 function cleanOldComments() {
   const now = Date.now();
   db.ref("comments").once("value", snapshot => {
