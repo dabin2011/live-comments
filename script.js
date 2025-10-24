@@ -1,5 +1,5 @@
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
   databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
   projectId: "YOUR_PROJECT_ID",
