@@ -1,7 +1,7 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
+  apiKey: "1r47xU0zAqbdb3lFZQdUMCZJVbLxx4Vs7",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/", // ← ここ重要！
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -9,9 +9,8 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
 const auth = firebase.auth();
-
+const db = firebase.database();
 const commentsRef = db.ref("comments");
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 let firstCommentTime = null;
@@ -32,7 +31,7 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// 新規登録
+// 新規登録・ログイン・ログアウト
 function signUp() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
@@ -41,7 +40,6 @@ function signUp() {
     .catch(error => alert(error.message));
 }
 
-// ログイン
 function signIn() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
@@ -50,26 +48,8 @@ function signIn() {
     .catch(error => alert(error.message));
 }
 
-// ログアウト
 function signOut() {
   auth.signOut().then(() => alert("ログアウトしました"));
-}
-
-// プロフィール更新
-function updateProfile() {
-  const user = auth.currentUser;
-  const newName = document.getElementById("newName").value.trim();
-  const newPhoto = document.getElementById("newPhoto").value.trim();
-
-  user.updateProfile({
-    displayName: newName || user.displayName,
-    photoURL: newPhoto || user.photoURL
-  }).then(() => {
-    alert("プロフィールを更新しました");
-    location.reload();
-  }).catch(error => {
-    alert("更新エラー：" + error.message);
-  });
 }
 
 // コメント送信
@@ -85,15 +65,13 @@ function sendComment() {
     text,
     timestamp: Date.now()
   }).then(() => {
-    console.log("保存成功");
+    document.getElementById("commentInput").value = "";
   }).catch(error => {
     alert("保存失敗：" + error.message);
   });
-
-  document.getElementById("commentInput").value = "";
 }
 
-// 最初のコメント時刻を取得
+// コメント表示処理
 commentsRef.once("value", snapshot => {
   let earliest = null;
   snapshot.forEach(child => {
@@ -104,7 +82,6 @@ commentsRef.once("value", snapshot => {
   });
   firstCommentTime = earliest || Date.now();
 
-  // コメント表示（child_added）
   commentsRef.on("child_added", snap => {
     const { name, text, timestamp, photo } = snap.val();
     if (timestamp - firstCommentTime <= THREE_HOURS) {
@@ -119,16 +96,27 @@ commentsRef.once("value", snapshot => {
   });
 });
 
-// 古いコメントを定期的に削除（30分ごと）
-function cleanOldComments() {
-  const now = Date.now();
-  commentsRef.once("value", snapshot => {
-    snapshot.forEach(child => {
-      const data = child.val();
-      if (now - data.timestamp > THREE_HOURS) {
-        commentsRef.child(child.key).remove();
-      }
+// プロフィール画像アップロード（GAS経由）
+document.getElementById("uploadForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+  const file = document.getElementById("imageFile").files[0];
+  if (!file) return alert("画像を選択してください");
+
+  const reader = new FileReader();
+  reader.onload = function() {
+    fetch("https://script.google.com/macros/s/AKfycbzw3HSk2HojzCsRX7HHljykN1sOK9IWhOJHy3EznbMLNg49uQfajx3gwNzsq1_qRk_G/exec", {
+      method: "POST",
+      body: reader.result
+    })
+    .then(res => res.text())
+    .then(url => {
+      auth.currentUser.updateProfile({ photoURL: url })
+        .then(() => {
+          alert("プロフィール画像を更新しました");
+          document.getElementById("avatar").src = url;
+        })
+        .catch(err => alert("更新失敗：" + err.message));
     });
-  });
-}
-setInterval(cleanOldComments, 30 * 60 * 1000);
+  };
+  reader.readAsArrayBuffer(file);
+});
