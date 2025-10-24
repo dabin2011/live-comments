@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>コメント・アンケート・通話リクエスト（完全版）</title>
+  <title>コメント・アンケート・通話・ゲーム（完全版）</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -46,6 +46,7 @@
         <input type="file" id="imageFile" name="imageFile" accept="image/*" />
         <button type="submit">画像アップロード</button>
       </form>
+      <div style="margin-top:12px;">保有ポイント: <strong id="myPoints">0</strong>pt</div>
     </div>
   </div>
 
@@ -59,10 +60,23 @@
       <div id="pollTimer" class="poll-timer" style="text-align:right;color:#666;margin-top:6px;"></div>
     </div>
 
+    <!-- Game area is shown when a game is active; it pushes comments down visually -->
+    <div id="gameArea" style="display:none;">
+      <div id="gameHeader" class="game-header">
+        <div id="gameTitle">ゲーム</div>
+        <div id="gameControls"></div>
+      </div>
+      <div id="gameContent" class="game-content">
+        <div id="shogiContainer" style="display:none;"></div>
+        <div id="spectatorArea" style="display:none;">観戦エリア</div>
+      </div>
+    </div>
+
     <div id="comments" aria-live="polite"></div>
 
     <div id="form" style="display:flex;gap:8px;align-items:center;margin-top:8px;">
       <input type="text" id="commentInput" placeholder="コメントを入力" />
+      <button id="gameBtn">ゲーム</button>
       <button id="pollBtn">アンケート</button>
       <button id="sendBtn">送信</button>
     </div>
@@ -81,6 +95,23 @@
       <div style="margin-top:8px;">
         <button id="addPollOptionBtn">選択肢を追加</button>
         <button id="createPollBtn">作成して開始（30秒）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game modal -->
+  <div id="gameModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" data-close="gameModal">&times;</button>
+      <h2>ゲームを選択</h2>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="gameChoice" data-game="shogi">将棋</button>
+      </div>
+      <div style="margin-top:12px;">
+        <label><input type="checkbox" id="publicGame" checked /> 観戦を許可する</label>
+      </div>
+      <div style="margin-top:12px;text-align:right;">
+        <button id="startGameBtn">開始（主催者のみ）</button>
       </div>
     </div>
   </div>
