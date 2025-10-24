@@ -1,7 +1,7 @@
 const firebaseConfig = {
   apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/", // ← ここ重要！
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -50,6 +50,20 @@ function signIn() {
 
 function signOut() {
   auth.signOut().then(() => alert("ログアウトしました"));
+}
+
+// ユーザー名更新
+function updateProfile() {
+  const user = auth.currentUser;
+  const newName = document.getElementById("newName").value.trim();
+  if (!user || !newName) return alert("名前を入力してください");
+
+  user.updateProfile({ displayName: newName })
+    .then(() => {
+      alert("ユーザー名を更新しました");
+      document.getElementById("username").textContent = newName;
+    })
+    .catch(error => alert("更新失敗：" + error.message));
 }
 
 // コメント送信
