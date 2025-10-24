@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>プロフィール＆コメントアプリ</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- ボタン表示領域 -->
   <div id="authButtons">
     <button id="loginBtn" onclick="openModal('loginModal')">ログイン</button>
     <button id="mypageBtn" onclick="openModal('mypageModal')" style="display:none;">マイページ</button>
@@ -14,13 +14,13 @@
   </div>
 
   <!-- ログインモーダル -->
-  <div id="loginModal" class="modal">
+  <div id="loginModal" class="modal" aria-hidden="true">
     <div class="modal-content">
       <span class="close" onclick="closeModal('loginModal')">&times;</span>
       <h2>ログイン</h2>
-      <input type="email" id="email" placeholder="メールアドレス">
-      <input type="password" id="password" placeholder="パスワード">
-      <div style="margin-top:10px;">
+      <input type="email" id="email" placeholder="メールアドレス" autocomplete="username" />
+      <input type="password" id="password" placeholder="パスワード" autocomplete="current-password" />
+      <div class="row">
         <button onclick="signUp()">新規登録</button>
         <button onclick="signIn()">ログイン</button>
       </div>
@@ -28,30 +28,31 @@
   </div>
 
   <!-- マイページモーダル -->
-  <div id="mypageModal" class="modal">
+  <div id="mypageModal" class="modal" aria-hidden="true">
     <div class="modal-content">
       <span class="close" onclick="closeModal('mypageModal')">&times;</span>
       <h2>マイページ</h2>
       <p>ようこそ、<span id="username"></span> さん！</p>
-      <img id="avatar" src="" width="100" height="100" style="border-radius:50%;"><br>
-      <input type="text" id="newName" placeholder="新しいユーザー名">
+      <img id="avatar" src="" width="100" height="100" alt="avatar" style="border-radius:50%;" /><br />
+      <input type="text" id="newName" placeholder="新しいユーザー名" />
       <button onclick="updateProfile()">ユーザー名を更新</button>
 
       <form id="uploadForm" enctype="multipart/form-data" style="margin-top:12px;">
-        <input type="file" id="imageFile" name="imageFile" accept="image/*">
+        <input type="file" id="imageFile" name="imageFile" accept="image/*" />
         <button type="submit">画像アップロード</button>
       </form>
     </div>
   </div>
 
-  <!-- コメント欄 -->
   <h2>コメント欄（3時間以内）</h2>
+
   <div id="commentsContainer">
-    <div id="comments"></div>
+    <div id="arrivalBanner" aria-live="polite"></div>
+    <div id="comments" aria-live="polite"></div>
 
     <div id="form" style="display:none;">
-      <input type="text" id="commentInput" placeholder="コメントを入力">
-      <button onclick="sendComment()">送信</button>
+      <input type="text" id="commentInput" placeholder="コメントを入力" />
+      <button id="sendBtn" onclick="sendComment()">送信</button>
     </div>
   </div>
 
@@ -59,6 +60,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
   <script src="script.js"></script>
 </body>
 </html>
