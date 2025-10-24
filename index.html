@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>コメント＆アンケートアプリ</title>
+  <title>コメント＆アンケートアプリ（修正版）</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -13,27 +13,27 @@
     <button id="logoutBtn" onclick="signOut()" style="display:none;">ログアウト</button>
   </div>
 
-  <!-- ログインモーダル -->
+  <!-- Login modal -->
   <div id="loginModal" class="modal" aria-hidden="true">
     <div class="modal-content">
-      <span class="close" onclick="closeModal('loginModal')">&times;</span>
+      <button class="close" data-close="loginModal">&times;</button>
       <h2>ログイン</h2>
       <input type="email" id="email" placeholder="メールアドレス" autocomplete="username" />
       <input type="password" id="password" placeholder="パスワード" autocomplete="current-password" />
-      <div class="row">
+      <div style="margin-top:8px;">
         <button onclick="signUp()">新規登録</button>
         <button onclick="signIn()">ログイン</button>
       </div>
     </div>
   </div>
 
-  <!-- マイページモーダル -->
+  <!-- My page modal -->
   <div id="mypageModal" class="modal" aria-hidden="true">
     <div class="modal-content">
-      <span class="close" onclick="closeModal('mypageModal')">&times;</span>
+      <button class="close" data-close="mypageModal">&times;</button>
       <h2>マイページ</h2>
-      <p>ようこそ、<span id="username"></span> さん！</p>
-      <img id="avatar" src="" width="100" height="100" alt="avatar" style="border-radius:50%;" /><br />
+      <p>ようこそ、<span id="username"></span> さん</p>
+      <img id="avatar" src="" alt="avatar" width="96" height="96" style="border-radius:50%;display:block;margin-bottom:8px;" />
       <input type="text" id="newName" placeholder="新しいユーザー名" />
       <button onclick="updateProfile()">ユーザー名を更新</button>
 
@@ -64,13 +64,13 @@
     </div>
   </div>
 
-  <!-- Poll creation modal -->
+  <!-- Poll modal -->
   <div id="pollModal" class="modal" aria-hidden="true">
     <div class="modal-content">
-      <span class="close" onclick="closeModal('pollModal')">&times;</span>
+      <button class="close" data-close="pollModal">&times;</button>
       <h2>アンケートを作成</h2>
       <input type="text" id="pollQuestion" placeholder="質問を入力" />
-      <div id="pollOptionsWrapper">
+      <div id="pollOptionsWrapper" style="margin-top:8px;">
         <input type="text" class="pollOption" placeholder="選択肢1" />
         <input type="text" class="pollOption" placeholder="選択肢2" />
       </div>
