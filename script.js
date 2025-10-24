@@ -33,21 +33,16 @@ let myVoteOpt = null;
 function escapeHtml(s){ if(s==null) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
 function formatTimeOnly(ts){ const d=new Date(ts); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-// Modal: robust open/close (attach after DOM ready)
+// Modal robust open/close
 document.addEventListener('DOMContentLoaded', () => {
   window.openModal = function(id){
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.classList.add('open');
-    el.setAttribute('aria-hidden','false');
-    const focusable = el.querySelector('input,button,select,textarea,[tabindex]');
-    if(focusable) focusable.focus();
+    const el = document.getElementById(id); if(!el) return;
+    el.classList.add('open'); el.setAttribute('aria-hidden','false');
+    const focusable = el.querySelector('input,button,select,textarea,[tabindex]'); if(focusable) focusable.focus();
   };
   window.closeModal = function(id){
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.classList.remove('open');
-    el.setAttribute('aria-hidden','true');
+    const el = document.getElementById(id); if(!el) return;
+    el.classList.remove('open'); el.setAttribute('aria-hidden','true');
   };
   document.querySelectorAll('.modal .close').forEach(btn=>{
     btn.addEventListener('click', () => { const id = btn.getAttribute('data-close') || btn.closest('.modal')?.id; if(id) closeModal(id); });
@@ -59,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupGlobal();
 });
 
-// Startup listeners and UI setup
+// Startup
 function setupGlobal(){
   arrivalsRef.on('child_added', snap => {
     const d = snap.val(); if(d && d.type === 'arrival') showArrivalBanner(d.name);
@@ -73,12 +68,11 @@ function setupGlobal(){
   if(uf) uf.addEventListener('submit', handleUploadForm);
 }
 
-// Arrival banner
+// Arrival
 function showArrivalBanner(name){
   const banner = document.getElementById('arrivalBanner'); if(!banner) return;
   banner.textContent = `${escapeHtml(name || 'ゲスト')}さんが配信を視聴しに来ました`;
-  banner.style.display = 'block';
-  banner.classList.add('show');
+  banner.style.display = 'block'; banner.classList.add('show');
   if(banner._hideTimer) clearTimeout(banner._hideTimer);
   banner._hideTimer = setTimeout(()=>{ banner.classList.remove('show'); setTimeout(()=>{ if(!banner.classList.contains('show')) banner.style.display='none'; },300); }, ARRIVAL_BANNER_DURATION);
 }
@@ -96,8 +90,8 @@ auth.onAuthStateChanged(user => {
     if(mypageBtn) mypageBtn.style.display = 'inline-block';
     if(logoutBtn) logoutBtn.style.display = 'inline-block';
     const uname = user.displayName || user.email || '';
-    document.getElementById('username').textContent = uname;
-    document.getElementById('avatar').src = user.photoURL || '';
+    const avatarEl = document.getElementById('avatar'); if(avatarEl) avatarEl.src = user.photoURL || '';
+    const unameEl = document.getElementById('username'); if(unameEl) unameEl.textContent = uname;
     if(!_prevAuthUser){
       arrivalsRef.push({ type: 'arrival', name: uname || 'ゲスト', timestamp: Date.now() }).catch(()=>{});
       showArrivalBanner(uname);
@@ -107,16 +101,16 @@ auth.onAuthStateChanged(user => {
     if(loginBtn) loginBtn.style.display = 'inline-block';
     if(mypageBtn) mypageBtn.style.display = 'none';
     if(logoutBtn) logoutBtn.style.display = 'none';
-    document.getElementById('avatar').src = '';
-    document.getElementById('username').textContent = '';
+    const avatarEl = document.getElementById('avatar'); if(avatarEl) avatarEl.src = '';
+    const unameEl = document.getElementById('username'); if(unameEl) unameEl.textContent = '';
   }
   _prevAuthUser = user;
 });
 
-function signUp(){ const email = document.getElementById('email').value.trim(); const password = document.getElementById('password').value; if(!email||!password) return alert('メールとパスワードを入力してください'); auth.createUserWithEmailAndPassword(email,password).then(()=>{ alert('登録成功'); closeModal('loginModal'); }).catch(err=>alert(err.message)); }
-function signIn(){ const email = document.getElementById('email').value.trim(); const password = document.getElementById('password').value; if(!email||!password) return alert('メールとパスワードを入力してください'); auth.signInWithEmailAndPassword(email,password).then(()=>{ alert('ログイン成功'); closeModal('loginModal'); }).catch(err=>alert(err.message)); }
+function signUp(){ const email=document.getElementById('email').value.trim(); const password=document.getElementById('password').value; if(!email||!password) return alert('メールとパスワードを入力してください'); auth.createUserWithEmailAndPassword(email,password).then(()=>{ alert('登録成功'); closeModal('loginModal'); }).catch(err=>alert(err.message)); }
+function signIn(){ const email=document.getElementById('email').value.trim(); const password=document.getElementById('password').value; if(!email||!password) return alert('メールとパスワードを入力してください'); auth.signInWithEmailAndPassword(email,password).then(()=>{ alert('ログイン成功'); closeModal('loginModal'); }).catch(err=>alert(err.message)); }
 function signOut(){ auth.signOut().then(()=>{ alert('ログアウトしました'); }).catch(err=>alert(err.message)); }
-function updateProfile(){ const user = auth.currentUser; const newName = document.getElementById('newName').value.trim(); if(!user) return alert('ログインしてください'); if(!newName) return alert('名前を入力してください'); user.updateProfile({ displayName: newName }).then(()=>{ alert('ユーザー名を更新しました'); document.getElementById('username').textContent = newName; closeModal('mypageModal'); }).catch(err=>alert('更新失敗：' + err.message)); }
+function updateProfile(){ const user = auth.currentUser; const newName = document.getElementById('newName').value.trim(); if(!user) return alert('ログインしてください'); if(!newName) return alert('名前を入力してください'); user.updateProfile({ displayName: newName }).then(()=>{ alert('ユーザー名を更新しました'); const ue=document.getElementById('username'); if(ue) ue.textContent=newName; closeModal('mypageModal'); }).catch(err=>alert('更新失敗：' + err.message)); }
 
 // Comments
 function initComments(){
@@ -132,8 +126,7 @@ function initComments(){
 }
 function prependCommentWithPushAnimation(d){
   const commentsEl = document.getElementById('comments'); if(!commentsEl) return;
-  const existing = Array.from(commentsEl.children);
-  existing.forEach(el => el.classList.add('_prep-shift'));
+  const existing = Array.from(commentsEl.children); existing.forEach(el => el.classList.add('_prep-shift'));
   commentsEl.offsetHeight;
   const div = document.createElement('div'); div.className = 'comment new';
   const avatarUrl = d.photo || 'https://via.placeholder.com/40';
@@ -144,7 +137,7 @@ function prependCommentWithPushAnimation(d){
 }
 function sendComment(){ const user = auth.currentUser; const text = document.getElementById('commentInput').value.trim(); if(!user) return alert('ログインしてください'); if(!text) return; commentsRef.push({ uid:user.uid, name:user.displayName||user.email, photo:user.photoURL||'', text, timestamp: Date.now() }).then(()=> document.getElementById('commentInput').value = '').catch(err=>alert('保存失敗：' + err.message)); }
 
-// Polls: ensure listener registered at startup so all updates propagate immediately
+// Polls listener
 function ensurePollListener(){
   if(localPollListenerSet) return;
   pollsRef.child('active').on('value', snap => {
@@ -157,14 +150,65 @@ function ensurePollListener(){
     }
     localActivePoll = data;
     renderPollState(localActivePoll);
-    if(localActivePoll.state === 'voting' && Date.now() > localActivePoll.endsAt){
-      finalizePollIfNeeded();
+    // Immediately finalize if endsAt passed
+    if(localActivePoll.state === 'voting' && Date.now() >= localActivePoll.endsAt){
+      // attempt to become the finalizer using a transaction marker to reduce races
+      attemptImmediateFinalize();
     }
   }, err => { console.warn('poll listener error', err); });
   localPollListenerSet = true;
 }
 
-// Render poll UI according to state; always respond to DB changes
+// attemptImmediateFinalize uses a lightweight race-safe mechanism: set a 'finalizingBy' uid via transaction
+function attemptImmediateFinalize(){
+  const user = auth.currentUser;
+  const finalizerId = (user && user.uid) ? user.uid : ('anon_' + Math.random().toString(36).slice(2,8));
+  const activeRef = pollsRef.child('active');
+  activeRef.child('finalizingBy').transaction(current => {
+    if(!current) return finalizerId;
+    return; // abort transaction if already set
+  }, (err, committed, snap) => {
+    if(err || !committed) {
+      // someone else claimed finalization, do nothing
+      return;
+    }
+    // we are the finalizer
+    finalizePollImmediate();
+  });
+}
+
+// finalize immediately: set counting then compute and set showResults without artificial delays
+function finalizePollImmediate(){
+  if(!localActivePoll) return;
+  // set counting state so all clients switch immediately
+  pollsRef.child('active').update({ state: 'counting' }).catch(()=>{});
+  // compute counts once (reads votes)
+  pollsRef.child('active').child('votes').once('value').then(snap => {
+    const votes = snap.val() || {};
+    const counts = {};
+    (localActivePoll.options || []).forEach(o => counts[o.id] = 0);
+    Object.values(votes).forEach(v => {
+      if(v && v.opt && counts[v.opt] !== undefined) counts[v.opt] += 1;
+    });
+    const newOptions = (localActivePoll.options || []).map(o => ({ id: o.id, label: o.label, count: counts[o.id] || 0 }));
+    // directly set results (no wait)
+    pollsRef.child('active').update({ options: newOptions, state: 'showResults', showResultsAt: Date.now() }).then(()=>{
+      // remove finalizingBy marker
+      pollsRef.child('active').child('finalizingBy').remove().catch(()=>{});
+      // schedule removal after short configurable period (default 30s)
+      setTimeout(() => {
+        const pollArea = document.getElementById('pollArea'); if(pollArea) pollArea.classList.add('poll-fadeout');
+        setTimeout(()=> { pollsRef.child('active').remove().catch(()=>{}); }, 600);
+      }, 30000);
+    }).catch(err => {
+      pollsRef.child('active').child('finalizingBy').remove().catch(()=>{});
+    });
+  }).catch(err => {
+    pollsRef.child('active').child('finalizingBy').remove().catch(()=>{});
+  });
+}
+
+// Render poll UI; reacts to DB immediately
 function renderPollState(poll){
   const pollArea = document.getElementById('pollArea'); const pollContent = document.getElementById('pollContent');
   if(!pollArea || !pollContent) return;
@@ -195,7 +239,7 @@ function renderPollState(poll){
       optEl.addEventListener('click', ()=> voteOption(o.id));
       const uid = auth.currentUser ? auth.currentUser.uid : null;
       if(uid){
-        pollsRef.child('active').child('votes').child(uid).once('value').then(snap=>{ const v=snap.val(); if(v && v.opt) markSelectedOption(v.opt); }).catch(()=>{});
+        pollsRef.child('active').child('votes').child(uid).once('value').then(s=>{ const v=s.val(); if(v && v.opt) markSelectedOption(v.opt); }).catch(()=>{});
       }
     } else {
       optEl.classList.add('disabled');
@@ -235,13 +279,11 @@ function renderPollState(poll){
   pollArea.style.display = 'block';
 }
 
-// Clear intervals references stored on 'poll' object if any
 function clearPollTimers(poll){
   try{ if(poll && poll._timerInterval){ clearInterval(poll._timerInterval); poll._timerInterval = null; } }catch(e){}
   try{ if(poll && poll._resultInterval){ clearInterval(poll._resultInterval); poll._resultInterval = null; } }catch(e){}
 }
 
-// Vote
 function voteOption(optId){
   const user = auth.currentUser; if(!user) return alert('ログインしてください'); if(!localActivePoll) return;
   if(localActivePoll.state === 'counting' || localActivePoll.state === 'showResults') return;
@@ -252,7 +294,6 @@ function voteOption(optId){
 }
 function markSelectedOption(optId){ document.querySelectorAll('.poll-option').forEach(el=> el.classList.toggle('selected', el.dataset.optId === optId)); }
 
-// Create poll
 function addPollOption(){ const wrapper = document.getElementById('pollOptionsWrapper'); const input = document.createElement('input'); input.type='text'; input.className='pollOption'; input.placeholder = `選択肢${wrapper.querySelectorAll('.pollOption').length + 1}`; wrapper.appendChild(input); }
 function createPoll(){
   const user = auth.currentUser; if(!user) return alert('ログインしてください');
@@ -265,37 +306,21 @@ function createPoll(){
   pollsRef.child('active').set(pollObj).then(()=> closeModal('pollModal')).catch(err=> alert('作成失敗：' + err.message));
 }
 
-// Finalize: counting -> showResults -> removal (any client may perform)
 function finalizePollIfNeeded(){
+  // legacy: keep for compatibility but prefer transaction-based immediate finalizer
   if(!localActivePoll || finalized) return;
-  finalized = true;
-  pollsRef.child('active').update({ state: 'counting' }).catch(()=>{});
-  setTimeout(()=> {
-    pollsRef.child('active').child('votes').once('value').then(snap => {
-      const votes = snap.val() || {};
-      const counts = {};
-      (localActivePoll.options || []).forEach(o => counts[o.id] = 0);
-      Object.values(votes).forEach(v => { if(v && v.opt && counts[v.opt] !== undefined) counts[v.opt] += 1; });
-      const newOptions = (localActivePoll.options || []).map(o => ({ id:o.id, label:o.label, count: counts[o.id] || 0 }));
-      pollsRef.child('active').update({ options: newOptions, state:'showResults', showResultsAt: Date.now() })
-        .then(()=> {
-          setTimeout(()=> {
-            const pollArea = document.getElementById('pollArea'); if(pollArea) pollArea.classList.add('poll-fadeout');
-            setTimeout(()=> { pollsRef.child('active').remove().catch(()=>{}); finalized = false; }, 600);
-          }, 30000);
-        }).catch(err=>{ console.warn('finalize update failed', err); finalized = false; });
-    }).catch(err=>{ console.warn('count votes failed', err); finalized = false; });
-  }, 800);
+  attemptImmediateFinalize();
 }
 
 function hidePollUI(){
   const pollArea = document.getElementById('pollArea'); if(!pollArea) return;
   pollArea.style.display = 'none'; pollArea.classList.remove('poll-fadeout');
-  document.getElementById('pollContent').innerHTML = ''; const t = document.getElementById('pollTimer'); if(t) t.textContent = '';
+  const pc = document.getElementById('pollContent'); if(pc) pc.innerHTML = '';
+  const t = document.getElementById('pollTimer'); if(t) t.textContent = '';
   myVoteOpt = null;
 }
 
-// Upload form (Apps Script)
+// Upload handling (Apps Script)
 function handleUploadForm(e){
   e.preventDefault();
   const file = document.getElementById('imageFile').files[0]; if(!file) return alert('画像を選択してください');
@@ -303,6 +328,6 @@ function handleUploadForm(e){
   const fd = new FormData(); fd.append('file', file);
   fetch(GAS_URL, { method:'POST', body: fd }).then(r => r.text()).then(url => {
     const user = auth.currentUser; if(!user) return alert('ログインしてください');
-    user.updateProfile({ photoURL: url }).then(()=> { document.getElementById('avatar').src = url; closeModal('mypageModal'); }).catch(err=>alert('更新失敗：' + err.message));
+    user.updateProfile({ photoURL: url }).then(()=> { const avatar=document.getElementById('avatar'); if(avatar) avatar.src=url; closeModal('mypageModal'); }).catch(err=>alert('更新失敗：' + err.message));
   }).catch(err=>alert('アップロード失敗：' + err.message));
 }
