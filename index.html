@@ -20,8 +20,10 @@
       <h2>ログイン</h2>
       <input type="email" id="email" placeholder="メールアドレス">
       <input type="password" id="password" placeholder="パスワード">
-      <button onclick="signUp()">新規登録</button>
-      <button onclick="signIn()">ログイン</button>
+      <div style="margin-top:10px;">
+        <button onclick="signUp()">新規登録</button>
+        <button onclick="signIn()">ログイン</button>
+      </div>
     </div>
   </div>
 
@@ -34,8 +36,9 @@
       <img id="avatar" src="" width="100" height="100" style="border-radius:50%;"><br>
       <input type="text" id="newName" placeholder="新しいユーザー名">
       <button onclick="updateProfile()">ユーザー名を更新</button>
-      <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" id="imageFile" name="imageFile">
+
+      <form id="uploadForm" enctype="multipart/form-data" style="margin-top:12px;">
+        <input type="file" id="imageFile" name="imageFile" accept="image/*">
         <button type="submit">画像アップロード</button>
       </form>
     </div>
@@ -43,11 +46,14 @@
 
   <!-- コメント欄 -->
   <h2>コメント欄（3時間以内）</h2>
-  <div id="form" style="display:none;">
-    <input type="text" id="commentInput" placeholder="コメントを入力">
-    <button onclick="sendComment()">送信</button>
+  <div id="commentsContainer">
+    <div id="comments"></div>
+
+    <div id="form" style="display:none;">
+      <input type="text" id="commentInput" placeholder="コメントを入力">
+      <button onclick="sendComment()">送信</button>
+    </div>
   </div>
-  <div id="comments"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
