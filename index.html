@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>3時間限定コメント欄</title>
+  <title>プロフィール付きコメント欄</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,6 +13,15 @@
     <button onclick="signUp()">新規登録</button>
     <button onclick="signIn()">ログイン</button>
     <button onclick="signOut()">ログアウト</button>
+  </div>
+
+  <h2>マイページ</h2>
+  <div id="mypage" style="display:none;">
+    <p>ようこそ、<span id="username"></span> さん！</p>
+    <img id="avatar" src="" alt="プロフィール画像" width="100" height="100"><br>
+    <input type="text" id="newName" placeholder="新しいユーザー名">
+    <input type="text" id="newPhoto" placeholder="画像URLを入力">
+    <button onclick="updateProfile()">プロフィール更新</button>
   </div>
 
   <h2>コメント欄（最初の投稿から3時間以内のみ表示）</h2>
