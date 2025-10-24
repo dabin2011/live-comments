@@ -15,23 +15,35 @@ const commentsRef = db.ref("comments");
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 let firstCommentTime = null;
 
+// モーダル開閉処理
+function openModal(id) {
+  document.getElementById(id).style.display = "block";
+}
+function closeModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+window.onclick = function(event) {
+  const modals = document.querySelectorAll(".modal");
+  modals.forEach(modal => {
+    if (event.target === modal) {
+      modal.style.display = "none";
+    }
+  });
+};
+
 // 認証状態の監視
 auth.onAuthStateChanged(user => {
   const form = document.getElementById("form");
-  const mypage = document.getElementById("mypage");
-
   if (user) {
     form.style.display = "block";
-    mypage.style.display = "block";
     document.getElementById("username").textContent = user.displayName || user.email;
     document.getElementById("avatar").src = user.photoURL || "https://via.placeholder.com/100";
   } else {
     form.style.display = "none";
-    mypage.style.display = "none";
   }
 });
 
-// 新規登録・ログイン・ログアウト
+// 新規登録
 function signUp() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
@@ -40,6 +52,7 @@ function signUp() {
     .catch(error => alert(error.message));
 }
 
+// ログイン
 function signIn() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
@@ -48,6 +61,7 @@ function signIn() {
     .catch(error => alert(error.message));
 }
 
+// ログアウト
 function signOut() {
   auth.signOut().then(() => alert("ログアウトしました"));
 }
