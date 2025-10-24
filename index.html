@@ -2,13 +2,21 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>生放送コメント欄</title>
+  <title>ログイン付きコメント欄</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <h2>ログイン</h2>
+  <div id="auth">
+    <input type="email" id="email" placeholder="メールアドレス">
+    <input type="password" id="password" placeholder="パスワード">
+    <button onclick="signUp()">新規登録</button>
+    <button onclick="signIn()">ログイン</button>
+    <button onclick="signOut()">ログアウト</button>
+  </div>
+
   <h2>コメント欄</h2>
-  <div id="form">
-    <input type="text" id="nameInput" placeholder="名前を入力">
+  <div id="form" style="display:none;">
     <input type="text" id="commentInput" placeholder="コメントを入力">
     <button onclick="sendComment()">送信</button>
   </div>
@@ -17,6 +25,7 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
