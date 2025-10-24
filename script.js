@@ -11,19 +11,31 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+let firstCommentTime = null;
+
 function sendComment() {
-  const input = document.getElementById("commentInput");
-  const text = input.value;
-  if (text.trim() !== "") {
-    db.ref("comments").push({ text });
-    input.value = "";
+  const name = document.getElementById("nameInput").value.trim();
+  const text = document.getElementById("commentInput").value.trim();
+  if (name && text) {
+    const timestamp = Date.now();
+    db.ref("comments").push({ name, text, timestamp });
+    document.getElementById("commentInput").value = "";
   }
 }
 
 db.ref("comments").on("child_added", snapshot => {
-  const comment = snapshot.val();
+  const { name, text, timestamp } = snapshot.val();
+
+  if (!firstCommentTime) {
+    firstCommentTime = timestamp;
+  }
+
+  const elapsedMs = timestamp - firstCommentTime;
+  const elapsedMin = Math.floor(elapsedMs / 60000);
+  const elapsedStr = elapsedMin > 0 ? `${elapsedMin}分後` : "開始直後";
+
   const div = document.createElement("div");
   div.className = "comment";
-  div.textContent = comment.text;
+  div.innerHTML = `<strong>${name}</strong>: ${text} <span>（${elapsedStr}）</span>`;
   document.getElementById("comments").appendChild(div);
 });
