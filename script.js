@@ -80,17 +80,19 @@ function updateProfile() {
 function sendComment() {
   const user = auth.currentUser;
   const text = document.getElementById("commentInput").value.trim();
-  if (user && text) {
-    const timestamp = Date.now();
-    commentsRef.push({
-      uid: user.uid,
-      name: user.displayName || user.email,
-      photo: user.photoURL || "",
-      text,
-      timestamp
-    });
-    document.getElementById("commentInput").value = "";
-  }
+  if (!user || !text) return;
+
+  db.ref("comments").push({
+    uid: user.uid,
+    name: user.displayName || user.email,
+    photo: user.photoURL || "",
+    text,
+    timestamp: Date.now()
+  }).then(() => {
+    console.log("保存成功");
+  }).catch(error => {
+    alert("保存エラー：" + error.message);
+  });
 }
 
 // 最初のコメント時刻を取得
