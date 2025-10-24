@@ -4,32 +4,73 @@ body {
   background-color: #f9f9f9;
 }
 
-input {
-  padding: 8px;
-  margin: 5px;
-  width: 250px;
-}
-
+/* Buttons */
+#authButtons { margin-bottom: 12px; }
 button {
   padding: 8px 12px;
   margin: 5px;
+  cursor: pointer;
 }
 
-#comments {
+/* Comments container (input fixed at bottom of container) */
+#commentsContainer {
   border: 1px solid #ccc;
   background-color: #fff;
   padding: 10px;
   max-height: 400px;
-  overflow-y: scroll;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
+#comments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+  scroll-behavior: smooth;
+}
+
+/* Each comment */
 .comment {
-  margin-bottom: 10px;
-  padding: 5px;
+  padding: 8px;
   border-bottom: 1px solid #eee;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: #fff;
+  animation: fadeInUp 400ms ease;
 }
 
-/* モーダルスタイル */
+.comment .meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comment img {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+}
+
+/* Input area stays at bottom */
+#form {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+/* small timestamp */
+.comment small {
+  color: gray;
+  font-size: 0.85em;
+}
+
+/* Modal styles */
 .modal {
   display: none;
   position: fixed;
@@ -41,10 +82,10 @@ button {
 
 .modal-content {
   background-color: #fff;
-  margin: 10% auto;
+  margin: 8% auto;
   padding: 20px;
-  width: 90%;
-  max-width: 400px;
+  width: 92%;
+  max-width: 420px;
   border-radius: 8px;
   position: relative;
 }
@@ -54,4 +95,10 @@ button {
   top: 10px; right: 15px;
   font-size: 24px;
   cursor: pointer;
+}
+
+/* animation */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
