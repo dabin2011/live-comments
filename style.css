@@ -7,6 +7,7 @@
   --btn-height: 44px;
   --btn-radius: 22px;
   --font-size: 14px;
+  --arrival-bg: #ff4b4b;
 }
 
 /* Base */
@@ -33,6 +34,29 @@ button {
 
 /* Row helper */
 .row { margin-top: 10px; }
+
+/* Arrival banner (red) */
+#arrivalBanner {
+  display: none;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--arrival-bg);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  text-align: center;
+  word-break: break-word;
+}
+#arrivalBanner.show {
+  display: block;
+  animation: arrivalFade 480ms ease;
+}
+@keyframes arrivalFade {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* Comments container: newest on top (prepend) */
 #commentsContainer {
@@ -96,7 +120,7 @@ button {
   transform: translateY(-18px);
 }
 
-/* Prep shift for existing items (moved up), removal triggers transition down */
+/* Prep shift for existing items */
 .comment._prep-shift {
   transform: translateY(-60px);
 }
@@ -138,13 +162,6 @@ button {
   font-size: var(--font-size);
 }
 
-/* Small screens: slightly smaller controls */
-@media (max-width: 420px) {
-  :root { --btn-height: 40px; --btn-radius: 20px; --font-size: 13px; }
-  #form input[type="text"] { height: var(--btn-height); }
-  #form button { height: var(--btn-height); padding: 0 12px; }
-}
-
 /* Modal styles */
 .modal {
   display: none;
@@ -172,7 +189,14 @@ button {
   cursor: pointer;
 }
 
-/* Accessibility: respect reduced motion preference */
+/* Responsive adjustments */
+@media (max-width: 420px) {
+  :root { --btn-height: 40px; --btn-radius: 20px; --font-size: 13px; }
+  #form input[type="text"] { height: var(--btn-height); }
+  #form button { height: var(--btn-height); padding: 0 12px; }
+}
+
+/* Accessibility: reduce motion */
 @media (prefers-reduced-motion: reduce) {
   .comment, .comment.new, .comment._prep-shift,
   #comments, #commentsContainer { transition: none; animation: none; scroll-behavior: auto; }
