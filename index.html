@@ -13,13 +13,12 @@
     <button id="logoutBtn" onclick="signOut()" style="display:none;">ログアウト</button>
   </div>
 
-  <!-- Login modal -->
   <div id="loginModal" class="modal" aria-hidden="true">
     <div class="modal-content">
       <button class="close" data-close="loginModal">&times;</button>
       <h2>ログイン</h2>
-      <input type="email" id="email" placeholder="メールアドレス" autocomplete="username" />
-      <input type="password" id="password" placeholder="パスワード" autocomplete="current-password" />
+      <input type="email" id="email" placeholder="メールアドレス" />
+      <input type="password" id="password" placeholder="パスワード" />
       <div style="margin-top:8px;">
         <button onclick="signUp()">新規登録</button>
         <button onclick="signIn()">ログイン</button>
@@ -27,7 +26,6 @@
     </div>
   </div>
 
-  <!-- My page modal -->
   <div id="mypageModal" class="modal" aria-hidden="true">
     <div class="modal-content">
       <button class="close" data-close="mypageModal">&times;</button>
@@ -36,7 +34,6 @@
       <img id="avatar" src="" alt="avatar" width="96" height="96" style="border-radius:50%;display:block;margin-bottom:8px;" />
       <input type="text" id="newName" placeholder="新しいユーザー名" />
       <button onclick="updateProfile()">ユーザー名を更新</button>
-
       <form id="uploadForm" enctype="multipart/form-data" style="margin-top:12px;">
         <input type="file" id="imageFile" name="imageFile" accept="image/*" />
         <button type="submit">画像アップロード</button>
@@ -49,7 +46,6 @@
   <div id="commentsContainer">
     <div id="arrivalBanner" aria-live="polite"></div>
 
-    <!-- Poll area -->
     <div id="pollArea" class="poll-area" style="display:none;">
       <div id="pollContent" class="poll-content"></div>
       <div id="pollTimer" class="poll-timer" style="text-align:right;color:#666;margin-top:6px;"></div>
@@ -64,7 +60,6 @@
     </div>
   </div>
 
-  <!-- Poll modal -->
   <div id="pollModal" class="modal" aria-hidden="true">
     <div class="modal-content">
       <button class="close" data-close="pollModal">&times;</button>
@@ -81,7 +76,6 @@
     </div>
   </div>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
