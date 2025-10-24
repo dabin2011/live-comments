@@ -1,8 +1,8 @@
 // ====== Firebase 設定を置き換えてください ======
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -235,7 +235,7 @@ document.getElementById("uploadForm").addEventListener("submit", function(e) {
   const reader = new FileReader();
   reader.onload = function() {
     // YOUR_GAS_SCRIPT_URL をデプロイ済みGASのURLに置き換えてください
-    fetch("YOUR_GAS_SCRIPT_URL", {
+    fetch("https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec", {
       method: "POST",
       body: reader.result
     })
