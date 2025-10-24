@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>プロフィール＆コメントアプリ</title>
+  <title>コメント＆アンケートアプリ</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -48,11 +48,36 @@
 
   <div id="commentsContainer">
     <div id="arrivalBanner" aria-live="polite"></div>
+
+    <!-- Poll area (hidden when no active poll) -->
+    <div id="pollArea" class="poll-area" aria-live="polite" style="display:none;">
+      <div id="pollContent" class="poll-content"></div>
+      <div id="pollTimer" class="poll-timer"></div>
+    </div>
+
     <div id="comments" aria-live="polite"></div>
 
     <div id="form" style="display:none;">
       <input type="text" id="commentInput" placeholder="コメントを入力" />
+      <button id="pollBtn" onclick="openModal('pollModal')">アンケート</button>
       <button id="sendBtn" onclick="sendComment()">送信</button>
+    </div>
+  </div>
+
+  <!-- Poll creation modal -->
+  <div id="pollModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('pollModal')">&times;</span>
+      <h2>アンケートを作成</h2>
+      <input type="text" id="pollQuestion" placeholder="質問を入力" />
+      <div id="pollOptionsWrapper">
+        <input type="text" class="pollOption" placeholder="選択肢1" />
+        <input type="text" class="pollOption" placeholder="選択肢2" />
+      </div>
+      <div style="margin-top:8px;">
+        <button onclick="addPollOption()">選択肢を追加</button>
+        <button onclick="createPoll()">作成して開始（30秒）</button>
+      </div>
     </div>
   </div>
 
