@@ -34,12 +34,22 @@ window.onclick = function(event) {
 // 認証状態の監視
 auth.onAuthStateChanged(user => {
   const form = document.getElementById("form");
+  const loginBtn = document.getElementById("loginBtn");
+  const mypageBtn = document.getElementById("mypageBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+
   if (user) {
     form.style.display = "block";
+    loginBtn.style.display = "none";
+    mypageBtn.style.display = "inline-block";
+    logoutBtn.style.display = "inline-block";
     document.getElementById("username").textContent = user.displayName || user.email;
     document.getElementById("avatar").src = user.photoURL || "https://via.placeholder.com/100";
   } else {
     form.style.display = "none";
+    loginBtn.style.display = "inline-block";
+    mypageBtn.style.display = "none";
+    logoutBtn.style.display = "none";
   }
 });
 
