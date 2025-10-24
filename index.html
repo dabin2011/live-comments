@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>コメント・アンケート・通話リクエスト</title>
+  <title>コメント・アンケート・通話リクエスト（修正版）</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -55,7 +55,7 @@
 
     <div id="comments" aria-live="polite"></div>
 
-    <div id="form" style="display:none;">
+    <div id="form" style="display:flex;">
       <input type="text" id="commentInput" placeholder="コメントを入力" />
       <button id="pollBtn" onclick="openModal('pollModal')">アンケート</button>
       <button id="sendBtn" onclick="sendComment()">送信</button>
