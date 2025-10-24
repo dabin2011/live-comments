@@ -10,7 +10,7 @@
   <div id="authButtons">
     <button id="loginBtn" onclick="openModal('loginModal')">ログイン</button>
     <button id="mypageBtn" onclick="openModal('mypageModal')" style="display:none;">マイページ</button>
-    <button id="logoutBtn" onclick="signOut()" style="display:none;">ログアウト</button>
+    <button id="logoutBtn" style="display:none;">ログアウト</button>
   </div>
 
   <!-- Login modal -->
@@ -21,8 +21,8 @@
       <input type="email" id="email" placeholder="メールアドレス" />
       <input type="password" id="password" placeholder="パスワード" />
       <div style="margin-top:8px;">
-        <button onclick="signUp()">新規登録</button>
-        <button onclick="signIn()">ログイン</button>
+        <button id="signupBtn">新規登録</button>
+        <button id="signinBtn">ログイン</button>
       </div>
     </div>
   </div>
@@ -33,10 +33,16 @@
       <button class="close" data-close="mypageModal">&times;</button>
       <h2>マイページ</h2>
       <p>ようこそ、<span id="username"></span> さん</p>
-      <img id="avatar" src="" alt="avatar" width="96" height="96" style="border-radius:50%;display:block;margin-bottom:8px;" />
-      <input type="text" id="newName" placeholder="新しいユーザー名" />
-      <button onclick="updateProfile()">ユーザー名を更新</button>
-      <form id="uploadForm" enctype="multipart/form-data" style="margin-top:12px;">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+        <img id="avatar" src="" alt="avatar" width="96" height="96" style="border-radius:50%;object-fit:cover" />
+        <div>
+          <input type="text" id="newName" placeholder="新しいユーザー名" />
+          <div style="margin-top:8px;">
+            <button id="updateNameBtn">ユーザー名を更新</button>
+          </div>
+        </div>
+      </div>
+      <form id="uploadForm" enctype="multipart/form-data" style="margin-top:8px;">
         <input type="file" id="imageFile" name="imageFile" accept="image/*" />
         <button type="submit">画像アップロード</button>
       </form>
@@ -57,8 +63,8 @@
 
     <div id="form" style="display:flex;gap:8px;align-items:center;margin-top:8px;">
       <input type="text" id="commentInput" placeholder="コメントを入力" />
-      <button id="pollBtn" onclick="openModal('pollModal')">アンケート</button>
-      <button id="sendBtn" onclick="sendComment()">送信</button>
+      <button id="pollBtn">アンケート</button>
+      <button id="sendBtn">送信</button>
     </div>
   </div>
 
@@ -79,7 +85,7 @@
     </div>
   </div>
 
-  <!-- Caller popup shown after clicking user icon -->
+  <!-- Caller popup -->
   <div id="callRequestPopup" class="modal" aria-hidden="true">
     <div class="modal-content small">
       <button class="close" data-close="callRequestPopup">&times;</button>
@@ -91,7 +97,7 @@
     </div>
   </div>
 
-  <!-- Incoming call popup shown to callee -->
+  <!-- Incoming call popup -->
   <div id="incomingCallPopup" class="modal" aria-hidden="true">
     <div class="modal-content small">
       <button class="close" data-close="incomingCallPopup">&times;</button>
@@ -103,7 +109,7 @@
     </div>
   </div>
 
-  <!-- Notification popup for caller when rejected/accepted -->
+  <!-- Notification popup -->
   <div id="callNotifyPopup" class="modal" aria-hidden="true">
     <div class="modal-content small">
       <button class="close" data-close="callNotifyPopup">&times;</button>
@@ -114,6 +120,7 @@
     </div>
   </div>
 
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
