@@ -6,10 +6,12 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- トリガーボタン -->
-  <button onclick="openModal('loginModal')">ログイン</button>
-  <button onclick="openModal('mypageModal')">マイページ</button>
-  <button onclick="signOut()">ログアウト</button>
+  <!-- ボタン表示領域 -->
+  <div id="authButtons">
+    <button id="loginBtn" onclick="openModal('loginModal')">ログイン</button>
+    <button id="mypageBtn" onclick="openModal('mypageModal')" style="display:none;">マイページ</button>
+    <button id="logoutBtn" onclick="signOut()" style="display:none;">ログアウト</button>
+  </div>
 
   <!-- ログインモーダル -->
   <div id="loginModal" class="modal">
