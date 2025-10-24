@@ -13,6 +13,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 const commentsRef = db.ref("comments");
+const arrivalsRef = db.ref("arrivals"); // arrival イベント用ノード
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 let firstCommentTime = null;
 let _prevAuthUser = null;
@@ -55,7 +56,7 @@ function showArrivalBanner(name) {
   }, ARRIVAL_BANNER_DURATION);
 }
 
-// ---------- 認証状態の監視（ボタン切替・到着バナー表示） ----------
+// ---------- 認証状態の監視（ボタン切替・到着バナー表示 & 全体通知） ----------
 auth.onAuthStateChanged(user => {
   const form = document.getElementById("form");
   const loginBtn = document.getElementById("loginBtn");
@@ -70,8 +71,15 @@ auth.onAuthStateChanged(user => {
     document.getElementById("username").textContent = user.displayName || user.email;
     document.getElementById("avatar").src = user.photoURL || "";
 
-    // 未ログイン状態からログインになった瞬間のみ到着バナーを表示
+    // 未ログイン -> ログイン への遷移を検出したら arrivals に到着イベントを書き込む
     if (!_prevAuthUser) {
+      const name = user.displayName || user.email || "ゲスト";
+      arrivalsRef.push({
+        type: "arrival",
+        name,
+        timestamp: Date.now()
+      }).catch(err => console.warn("arrival push failed:", err));
+      // クライアント自身にもすぐ表示（他クライアントは child_added で受け取る）
       showArrivalBanner(user.displayName || user.email);
     }
   } else {
@@ -84,6 +92,15 @@ auth.onAuthStateChanged(user => {
   }
 
   _prevAuthUser = user;
+});
+
+// ---------- arrivals ノードを全クライアントで監視（全員に表示） ----------
+arrivalsRef.on("child_added", snap => {
+  const data = snap.val();
+  if (!data || data.type !== "arrival") return;
+  showArrivalBanner(data.name);
+  // イベントを一度表示したら削除して過去イベントが新規接続時に再生されないようにする
+  snap.ref.remove().catch(()=>{/* ignore */});
 });
 
 // ---------- 認証操作 ----------
@@ -182,8 +199,7 @@ function prependCommentWithPushAnimation(data) {
   existing.forEach(el => el.classList.add("_prep-shift"));
 
   // 強制再描画して transition の起点を作る
-  // eslint-disable-next-line no-unused-expressions
-  commentsEl.offsetHeight;
+  commentsEl.offsetHeight; // no-op to force reflow
 
   // 新しいコメント要素（.new で初期状態）
   const div = document.createElement("div");
