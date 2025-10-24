@@ -10,21 +10,24 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 
-// Realtime DB と Auth の参照
 const auth = firebase.auth();
 const db = firebase.database();
 const commentsRef = db.ref("comments");
-
-// 表示制御・定数
 const THREE_HOURS = 3 * 60 * 60 * 1000;
 let firstCommentTime = null;
 
 // ---------- モーダル制御 ----------
 function openModal(id) {
-  document.getElementById(id).style.display = "block";
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = "block";
+  el.setAttribute("aria-hidden", "false");
 }
 function closeModal(id) {
-  document.getElementById(id).style.display = "none";
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = "none";
+  el.setAttribute("aria-hidden", "true");
 }
 window.onclick = function(event) {
   const modals = document.querySelectorAll(".modal");
@@ -33,7 +36,7 @@ window.onclick = function(event) {
   });
 };
 
-// ---------- 認証状態監視（ボタン切替・表示更新） ----------
+// ---------- 認証状態の監視（ボタン切替・表示更新） ----------
 auth.onAuthStateChanged(user => {
   const form = document.getElementById("form");
   const loginBtn = document.getElementById("loginBtn");
@@ -46,12 +49,14 @@ auth.onAuthStateChanged(user => {
     mypageBtn.style.display = "inline-block";
     logoutBtn.style.display = "inline-block";
     document.getElementById("username").textContent = user.displayName || user.email;
-    document.getElementById("avatar").src = user.photoURL || "https://via.placeholder.com/100";
+    document.getElementById("avatar").src = user.photoURL || "";
   } else {
     form.style.display = "none";
     loginBtn.style.display = "inline-block";
     mypageBtn.style.display = "none";
     logoutBtn.style.display = "none";
+    document.getElementById("avatar").src = "";
+    document.getElementById("username").textContent = "";
   }
 });
 
@@ -77,10 +82,7 @@ function signIn() {
 function signOut() {
   auth.signOut().then(() => {
     alert("ログアウトしました");
-    // 必要ならUIをリセット
-    document.getElementById("avatar").src = "";
-    document.getElementById("username").textContent = "";
-  });
+  }).catch(err => alert(err.message));
 }
 
 // ---------- ユーザー名更新 ----------
@@ -117,7 +119,7 @@ function sendComment() {
   }).catch(err => alert("保存失敗：" + err.message));
 }
 
-// ---------- 時刻フォーマット（時:分 24時間） ----------
+// ---------- 時刻フォーマット（時:分） ----------
 function formatTimeOnly(ts) {
   const d = new Date(ts);
   const hh = String(d.getHours()).padStart(2, "0");
@@ -127,35 +129,40 @@ function formatTimeOnly(ts) {
 
 // ---------- コメント表示：初期取得と child_added ----------
 function initComments() {
-  // まず全件を一度読み出して最初のタイムスタンプを決める
   commentsRef.once("value", snapshot => {
     let earliest = null;
     snapshot.forEach(child => {
       const data = child.val();
-      if (!earliest || data.timestamp < earliest) earliest = data.timestamp;
+      if (data && data.timestamp && (!earliest || data.timestamp < earliest)) earliest = data.timestamp;
     });
     firstCommentTime = earliest || Date.now();
 
-    // 以降の追加を監視（表示は新しいものが下に来る）
     commentsRef.on("child_added", snap => {
       const data = snap.val();
       if (!data || !data.timestamp) return;
       if (data.timestamp - firstCommentTime > THREE_HOURS) return;
-
-      appendCommentToBottom(data);
+      prependCommentWithPushAnimation(data);
     });
   });
 }
 initComments();
 
-// ---------- コメント要素を下に追加し自動スクロール ----------
-function appendCommentToBottom(data) {
+// ---------- 新しいコメントを先頭に挿入し、既存コメントを下へ押し出す動作 ----------
+function prependCommentWithPushAnimation(data) {
   const commentsEl = document.getElementById("comments");
   const container = document.getElementById("commentsContainer");
 
-  const div = document.createElement("div");
-  div.className = "comment";
+  // 既存コメントを上に引き上げる準備クラスを付与
+  const existing = Array.from(commentsEl.children);
+  existing.forEach(el => el.classList.add("_prep-shift"));
 
+  // 強制再描画して transition の起点を作る
+  // eslint-disable-next-line no-unused-expressions
+  commentsEl.offsetHeight;
+
+  // 新しいコメント要素（.new で初期状態）
+  const div = document.createElement("div");
+  div.className = "comment new";
   const avatarUrl = data.photo || "https://via.placeholder.com/40";
   div.innerHTML = `
     <img src="${escapeHtml(avatarUrl)}" alt="avatar">
@@ -166,17 +173,26 @@ function appendCommentToBottom(data) {
     <div style="margin-left:auto;"><small>${formatTimeOnly(data.timestamp)}</small></div>
   `;
 
-  commentsEl.appendChild(div);
+  // 先頭に挿入
+  if (commentsEl.firstChild) commentsEl.insertBefore(div, commentsEl.firstChild);
+  else commentsEl.appendChild(div);
 
-  // アニメーション完了後にスクロールする（少し待つことでアニメーションが映える）
+  // 次フレームでクラスを外してアニメーション開始
   requestAnimationFrame(() => {
-    container.scrollTop = container.scrollHeight;
+    div.classList.remove("new");              // フェードイン＆位置戻し
+    existing.forEach(el => el.classList.remove("_prep-shift")); // 既存要素は下へ移動
   });
+
+  // クリーンアップ（念のためタイムアウト）
+  setTimeout(() => {
+    div.classList.remove("new");
+    existing.forEach(el => el.classList.remove("_prep-shift"));
+  }, 600);
 }
 
 // ---------- 簡易エスケープ ----------
 function escapeHtml(str) {
-  if (!str && str !== "") return "";
+  if (str === null || str === undefined) return "";
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
