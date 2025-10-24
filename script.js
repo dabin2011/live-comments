@@ -104,7 +104,7 @@ document.getElementById("uploadForm").addEventListener("submit", function(e) {
 
   const reader = new FileReader();
   reader.onload = function() {
-    fetch("https://script.google.com/macros/s/AKfycbzw3HSk2HojzCsRX7HHljykN1sOK9IWhOJHy3EznbMLNg49uQfajx3gwNzsq1_qRk_G/exec", {
+    fetch("https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec", {
       method: "POST",
       body: reader.result
     })
