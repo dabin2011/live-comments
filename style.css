@@ -1,7 +1,13 @@
+:root {
+  --max-height: 400px;
+  --gap: 10px;
+}
+
 body {
-  font-family: sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   padding: 20px;
-  background-color: #f9f9f9;
+  background: #f9f9f9;
+  color: #222;
 }
 
 /* Buttons */
@@ -10,23 +16,27 @@ button {
   padding: 8px 12px;
   margin: 5px;
   cursor: pointer;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 6px;
 }
+.row { margin-top: 10px; }
 
-/* Comments container (input fixed at bottom of container) */
+/* Comments container: newest on top (prepend) */
 #commentsContainer {
   border: 1px solid #ccc;
-  background-color: #fff;
+  background: #fff;
   padding: 10px;
-  max-height: 400px;
-  overflow: hidden;
+  max-height: var(--max-height);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 #comments {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--gap);
   flex-grow: 1;
   overflow-y: auto;
   padding-right: 6px;
@@ -35,39 +45,53 @@ button {
 
 /* Each comment */
 .comment {
-  padding: 8px;
-  border-bottom: 1px solid #eee;
   display: flex;
   gap: 10px;
   align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
   background: #fff;
-  animation: fadeInUp 400ms ease;
+  transition: transform 300ms ease, opacity 300ms ease;
+  will-change: transform, opacity;
+  opacity: 1;
+}
+
+.comment img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .comment .meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 auto;
 }
 
-.comment img {
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
+.comment small {
+  color: #888;
+  font-size: 0.85em;
 }
 
-/* Input area stays at bottom */
+/* Inserted comment initial state: slightly up and transparent */
+.comment.new {
+  opacity: 0;
+  transform: translateY(-18px);
+}
+
+/* Prepare shift state for existing comments: they are moved up before new appears,
+   then transition back to natural position (which visually moves them down) */
+.comment._prep-shift {
+  transform: translateY(-60px);
+}
+
+/* Input area fixed at bottom of container */
 #form {
   margin-top: 8px;
   display: flex;
   gap: 8px;
-}
-
-/* small timestamp */
-.comment small {
-  color: gray;
-  font-size: 0.85em;
 }
 
 /* Modal styles */
@@ -97,8 +121,7 @@ button {
   cursor: pointer;
 }
 
-/* animation */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+/* animation cleanup */
+@media (prefers-reduced-motion: reduce) {
+  .comment, .comment.new, .comment._prep-shift { transition: none; animation: none; }
 }
