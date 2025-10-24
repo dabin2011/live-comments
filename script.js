@@ -93,7 +93,11 @@ function sendComment() {
   document.getElementById("commentInput").value = "";
 }
 
-// 最初のコメント時刻を取得してから表示処理を開始
+const commentsRef = db.ref("comments");
+const THREE_HOURS = 3 * 60 * 60 * 1000;
+let firstCommentTime = null;
+
+// 最初のコメント時刻を取得
 commentsRef.once("value", snapshot => {
   let earliest = null;
   snapshot.forEach(child => {
