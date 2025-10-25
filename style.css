@@ -50,11 +50,10 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 .grid{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;flex:1}
 .grid-cell{display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,0.06);min-height:34px;background:transparent;cursor:pointer}
 .shogiBoard img{display:block;max-width:70%;max-height:70%;user-select:none;pointer-events:none}
-/* 後手駒回転 */
 .shogiBoard img.koma-gote{transform:rotate(180deg);transform-origin:center center}
 
 /* modal backdrop and modal */
-.modal-backdrop{position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.45);opacity:0;pointer-events:none;visibility:hidden;transition:opacity .18s ease,visibility .18s ease}
+.modal-backdrop{position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.45);opacity:0;pointer-events:none;visibility:hidden;transition:opacity .18s ease,visibility .18s ease;z-index:10000}
 .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.98);min-width:280px;max-width:92%;z-index:10001;display:none;opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
 .modal.open{display:block;opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
 .modal.open ~ .modal-backdrop{opacity:1;pointer-events:auto;visibility:visible}
@@ -69,3 +68,4 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 .gameChoice{padding:8px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:#fff;margin-bottom:8px}
 .gameChoice[data-selected="true"]{background:var(--accent);color:#fff;border-color:rgba(0,0,0,0.08)}
 .assetPreview img{max-width:100%;height:auto;border-radius:6px;border:1px solid var(--border)}
+.controlBtn{padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer}
