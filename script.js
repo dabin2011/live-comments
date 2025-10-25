@@ -611,13 +611,25 @@ function initialShogiBoard(){
     ['L','N','S','G','K','G','S','N','L']
   ];
 }
+
 function renderGameState(game){
   if (!game) return;
   if (game.type === 'shogi') {
     const shogi = game.shogi || game.shogiState || {};
     renderShogiBoard(game.id, shogi);
+
+    // 自分の番かどうかを表示
+    const info = el('gameInfo');
+    if (auth?.currentUser) {
+      if (shogi.turn === auth.currentUser.uid) {
+        info.textContent = "あなたの番です";
+      } else {
+        info.textContent = "相手の番です";
+      }
+    }
   }
 }
+
 async function renderShogiBoard(gid, shogiState){
   const container = el('shogiContainer'); if (!container) return;
   container.innerHTML = '';
@@ -625,17 +637,27 @@ async function renderShogiBoard(gid, shogiState){
   const size = 9;
   const grid = document.createElement('div'); grid.className='grid';
   const board = shogiState?.board || initialShogiBoard();
+
   for (let r=0;r<size;r++){
     for (let c=0;c<size;c++){
       const sq = document.createElement('div'); sq.className='grid-cell'; sq.dataset.r=r; sq.dataset.c=c;
       const piece = board[r][c];
       if (piece && piece !== '.') {
-        const img = document.createElement('img'); img.alt = piece;
-        // 駒コードに応じて画像を切り替え
+        const img = document.createElement('img');
+        img.alt = piece;
         const filename = pieceImages[piece] || 'pawn.png';
         img.src = `assets/koma/${filename}`;
-        const isSente = piece === piece.toUpperCase();
-        if (!isSente) img.classList.add('koma-gote'); else img.classList.remove('koma-gote');
+        if (piece === piece.toLowerCase()) img.classList.add('koma-gote');
++
++       // クリックで移動可能マスをハイライト
++       img.addEventListener('click', ()=>{
++         clearHighlights();
++         const moves = calcMoves(piece, r, c, board);
++         moves.forEach(m=>{
++           const target = grid.querySelector(`.grid-cell[data-r="${m.r}"][data-c="${m.c}"]`);
++           if (target) target.classList.add('highlight');
++         });
++       });
         sq.appendChild(img);
       }
       grid.appendChild(sq);
@@ -643,26 +665,21 @@ async function renderShogiBoard(gid, shogiState){
   }
   boardWrap.appendChild(grid); container.appendChild(boardWrap);
 }
-async function makeShogiMove(gid, uid, from, to){
-  try {
-    if (!gamesRef) return;
-    const shogiRef = gamesRef.child(gid).child('shogi');
-    await shogiRef.transaction(current => {
-      if (!current) return current;
-      const board = current.board || initialShogiBoard();
-      const piece = board[from.r][from.c];
-      if (!piece || piece === '.') return;
-      board[to.r][to.c] = piece;
-      board[from.r][from.c] = '.';
-      const moves = current.moves || [];
-      moves.push({ by: uid, from, to, ts: now() });
-      const activePlayers = gameLocalState?.activePlayers ? Object.keys(gameLocalState.activePlayers) : [];
-      const other = activePlayers.find(u=>u!==uid) || uid;
-      current.board = board; current.moves = moves; current.turn = other;
-      return current;
-    });
-  } catch(e){ console.error('makeShogiMove error', e); }
-}
++
++function clearHighlights(){
++  document.querySelectorAll('.highlight').forEach(el=>el.classList.remove('highlight'));
++}
++
++// 簡易的な移動計算（例: 歩だけ）
++function calcMoves(piece, r, c, board){
++  const moves = [];
++  if (piece.toLowerCase() === 'p'){ 
++    const dir = (piece === 'P') ? -1 : 1;
++    const nr = r + dir;
++    if (nr>=0 && nr<9 && board[nr][c]==='.') moves.push({r:nr,c});
++  }
++  return moves;
++}
 async function endGame(gid, winnerUid){
   try {
     if (!gamesRef) return;
