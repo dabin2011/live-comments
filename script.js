@@ -1,13 +1,8 @@
-/* script.js - 完全版（ログインモーダル / コメント / アンケート配信(30s) / アンケート結果表示 / マイページモーダル / ゲーム作成ポップアップ（将棋） / 来訪通知 / 同時接続数）
-   必須: 以下を実環境の値に置き換えてください:
-     - firebaseConfig の各値
-     - GAS_URL (プロフィール画像アップロード用; 必要ない場合も残せます)
-   前提 HTML/CSS は以前の指示どおり配置されていること
+/* script.js - マイページをボタンで開くポップアップ表示に変更した完全版
+   必須: firebaseConfig と GAS_URL を実環境の値に置き換えてください
 */
 
-/* =========================
-   設定（ここを実環境に置き換える）
-   ========================= */
+/* ===== 設定（ここを実環境に置き換える） ===== */
 const firebaseConfig = {
   apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "shige-live.firebaseapp.com",
@@ -20,20 +15,16 @@ const firebaseConfig = {
 };
 const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
 
-/* =========================
-   Firebase 初期化
-   ========================= */
+/* ===== Firebase 初期化 ===== */
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 const commentsRef = db.ref('comments');
-const pollRef = db.ref('activePoll'); // 単一アクティブアンケート
+const pollRef = db.ref('activePoll');
 const gamesRef = db.ref('games');
 const presenceRef = db.ref('presence');
 
-/* =========================
-   ユーティリティ
-   ========================= */
+/* ===== ユーティリティ ===== */
 function el(id){ return document.getElementById(id) || null; }
 function now(){ return Date.now(); }
 function escapeHtml(s){ if (s == null) return ''; return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m])); }
@@ -41,52 +32,65 @@ function show(node){ if(!node) return; node.style.display = 'block'; node.setAtt
 function hide(node){ if(!node) return; node.style.display = 'none'; node.setAttribute('aria-hidden','true'); }
 function safeAdd(id, ev, fn){ const e = el(id); if (e) e.addEventListener(ev, fn); }
 
-/* =========================
-   DOMContentLoaded 初期化
-   ========================= */
+/* ===== 初期化 ===== */
 document.addEventListener('DOMContentLoaded', () => {
-  initUiControls();       // modal open/close buttons
-  initAuth();             // login/logout UI & auth state
-  initPresence();         // presence & visitor notice & conn count
-  initComments();         // comment send & list
-  initPollEditor();       // poll creation modal & create action
-  initPollListener();     // react to active poll changes (start/end/results)
-  initMyPageModal();      // mypage modal UI & profile upload
-  initGameSelect();       // game create modal & create shogi
-  initGameListSubscribe(); // show games list
+  initUiControls();
+  initAuth();
+  initPresence();
+  initComments();
+  initPollEditor();
+  initPollListener();
+  initMyPageModal();
+  initProfileUpload();
+  initGameSelect();
+  initGameListSubscribe();
 });
 
-/* =========================
-   UI: modal open/close bindings
-   ========================= */
+/* ===== UI: モーダル開閉とボタンバインド ===== */
 function initUiControls(){
   safeAdd('openLoginBtn','click', ()=> show(el('loginModal')));
   safeAdd('closeLoginBtn','click', ()=> hide(el('loginModal')));
   safeAdd('openPollEditorBtn','click', ()=> show(el('pollEditorModal')));
   safeAdd('closePollEditorBtn','click', ()=> hide(el('pollEditorModal')));
-  safeAdd('openMyPageBtn','click', ()=> show(el('myPageModal')));
+  // マイページをボタンで開く（ユーザー操作）
+  safeAdd('openMyPageBtn','click', ()=> {
+    // 最新のユーザ情報を反映してから表示
+    const user = auth.currentUser;
+    if (user) {
+      if (el('myAvatarLarge')) el('myAvatarLarge').src = user.photoURL || '';
+      if (el('myName')) el('myName').textContent = user.displayName || user.email || '';
+      // 過去のbioがDBにあれば取得して埋める
+      db.ref('users').child(user.uid).child('profile').once('value').then(snap=>{
+        const p = snap.val();
+        if (p && el('myBio')) el('myBio').value = p.bio || '';
+        show(el('myPageModal'));
+      }).catch(()=> show(el('myPageModal')));
+    } else {
+      // ログインしていなければモーダルを開いてログインを促す
+      alert('マイページを開くにはログインしてください');
+      show(el('loginModal'));
+    }
+  });
   safeAdd('closeMyPageBtn','click', ()=> hide(el('myPageModal')));
+
   safeAdd('openGameSelectBtn','click', ()=> show(el('gameSelectModal')));
   safeAdd('closeGameSelectBtn','click', ()=> hide(el('gameSelectModal')));
 
-  // modal backdrop click closes
+  // backdrop クリックで閉じる (各モーダル)
   ['loginModal','pollEditorModal','myPageModal','gameSelectModal'].forEach(id=>{
     const m = el(id);
     if (m) m.addEventListener('click', e => { if (e.target === m) hide(m); });
   });
 
-  // close poll popup on ESC if visible
+  // ESC で各モーダルを閉じる
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       ['loginModal','pollEditorModal','myPageModal','gameSelectModal'].forEach(id => hide(el(id)));
-      // don't forcibly hide pollPopup here; poll lifecycle handled by DB
     }
   });
 }
 
-/* =========================
-   Auth
-   ========================= */
+/* ===== Auth ===== */
 function initAuth(){
   safeAdd('loginBtn','click', async () => {
     const email = el('emailInput')?.value || '';
@@ -120,9 +124,7 @@ function initAuth(){
   });
 }
 
-/* =========================
-   Presence: 同時接続数 & 来訪通知
-   ========================= */
+/* ===== Presence: 同時接続と来訪通知 ===== */
 let myPresenceKey = null;
 function initPresence(){
   const con = db.ref('.info/connected');
@@ -133,44 +135,36 @@ function initPresence(){
       const user = auth.currentUser;
       p.set({ ts: now(), uid: user ? user.uid : null, name: user ? (user.displayName || user.email) : null, ua: navigator.userAgent });
       p.onDisconnect().remove();
-      // notify others: presence child_added will trigger other clients
     }
   });
 
-  // 同時接続数表示
   presenceRef.on('value', snap => {
     const count = snap.numChildren();
     if (el('connCount')) el('connCount').textContent = '接続: ' + count;
   });
 
-  // new visitor notice (throttle initial burst)
-  let initialLoad = true;
-  setTimeout(()=> { initialLoad = false; }, 1000); // ignore first-second burst
+  let initial = true;
+  setTimeout(()=> initial = false, 1000);
   presenceRef.on('child_added', snap => {
-    if (initialLoad) return;
+    if (initial) return;
     const v = snap.val();
     if (!v) return;
-    showVisitorNotice(v);
+    const notice = el('visitNotice');
+    if (!notice) return;
+    const name = v.name || '誰か';
+    notice.textContent = `${name} が配信を視聴しに来ました`;
+    notice.style.background = '#c62828';
+    show(notice);
+    setTimeout(()=> hide(notice), 4000);
   });
 }
-function showVisitorNotice(v){
-  const notice = el('visitNotice');
-  if (!notice) return;
-  const name = v.name || '誰か';
-  notice.textContent = `${name} が配信を視聴しに来ました`;
-  notice.style.background = '#c62828';
-  show(notice);
-  setTimeout(()=> hide(notice), 4000);
-}
 
-/* =========================
-   COMMENTS: send & render (ensure works)
-   ========================= */
+/* ===== Comments ===== */
 function initComments(){
   const sendBtn = el('sendCommentBtn');
   const input = el('commentInput');
   const list = el('commentList');
-  if (!sendBtn || !input || !list) { console.warn('comment elements missing'); return; }
+  if (!sendBtn || !input || !list) { console.warn('コメント要素不足'); return; }
 
   sendBtn.addEventListener('click', async () => {
     const text = input.value.trim();
@@ -189,7 +183,6 @@ function initComments(){
     }
   });
 
-  // render: newest first
   commentsRef.limitToLast(500).off('child_added');
   commentsRef.limitToLast(500).on('child_added', snap => {
     const d = snap.val();
@@ -202,23 +195,15 @@ function initComments(){
   });
 }
 
-/* =========================
-   POLL CREATION & LIFECYCLE
-   - createPoll: sets pollRef with object:
-     { question, options: [{id,label,count}], active:true, startAt, endAt }
-   - clients listen to pollRef; on active: show pollPopup, slide comments, show timer
-   - when endAt passed: show results (graph + percent) for 20s, then hide and restore comments
-   - counts updated atomically via transaction on pollRef/options
-   ========================= */
+/* ===== Poll: 作成用モーダルと配信リスナー ===== */
 let pollLocalTimer = null;
 function initPollEditor(){
   const optionsContainer = el('pollOptionsContainer');
   const addBtn = el('addPollOptionBtn');
   const createBtn = el('createPollBtn');
   const closeBtn = el('closePollEditorBtn');
-
   if (!optionsContainer) return;
-  // ensure two inputs
+
   function ensureTwo(){ if (optionsContainer.querySelectorAll('.pollOption').length < 2) { for (let i=0;i<2;i++){ const inp = document.createElement('input'); inp.className='pollOption input'; inp.placeholder='選択肢'; optionsContainer.appendChild(inp); } } }
   ensureTwo();
 
@@ -230,20 +215,17 @@ function initPollEditor(){
     if (!q) return alert('質問を入力してください');
     const labels = Array.from(optionsContainer.querySelectorAll('.pollOption')).map(i=>i.value.trim()).filter(v=>v);
     if (labels.length < 2) return alert('選択肢を2つ以上用意してください');
-    // build poll
     const options = labels.map(label => ({ id: Math.random().toString(36).slice(2), label, count: 0 }));
     const startAt = now();
-    const endAt = startAt + 30_000; // 30秒
+    const endAt = startAt + 30_000;
     const pollObj = { question: q, options, active: true, startAt, endAt, createdBy: auth.currentUser.uid };
     try {
       await pollRef.set(pollObj);
-      // UI cleanup
       el('pollQuestion').value = '';
       optionsContainer.innerHTML = '';
       ensureTwo();
       hide(el('pollEditorModal'));
-      // Slide comments down for poll duration (handled by poll listener on all clients)
-    } catch(e){
+    } catch (e) {
       console.error('create poll failed', e);
       alert('アンケート作成に失敗しました');
     }
@@ -252,7 +234,6 @@ function initPollEditor(){
   closeBtn && closeBtn.addEventListener('click', ()=> hide(el('pollEditorModal')));
 }
 
-/* Poll listener: handles showing popup, timer, voting, results, auto-hide */
 function initPollListener(){
   const popup = el('pollPopup');
   const popupQuestion = el('pollPopupQuestion');
@@ -261,15 +242,12 @@ function initPollListener(){
   const popupResult = el('pollResult');
   const commentPanel = el('commentPanel');
 
-  // clear any local timers
   if (pollLocalTimer) { clearInterval(pollLocalTimer); pollLocalTimer = null; }
 
   pollRef.off('value');
   pollRef.on('value', snap => {
     const poll = snap.val();
-    // If no poll -> ensure popup hidden and commentPanel restored
     if (!poll || !poll.active) {
-      // hide popup and results, restore comments
       hide(popup);
       popupTimer.textContent = '';
       popupOptions.innerHTML = '';
@@ -278,31 +256,25 @@ function initPollListener(){
       return;
     }
 
-    // poll active
-    // slide comments
     if (commentPanel) commentPanel.classList.add('slid');
 
-    // render question and options
     popupOptions.innerHTML = '';
     popupResult.innerHTML = '';
     popupQuestion.textContent = poll.question || 'アンケート';
     const nowMs = now();
     const endAt = poll.endAt || (poll.startAt + 30_000);
     const remaining = Math.max(0, endAt - nowMs);
-
-    // present options as buttons for voting (disable if expired)
     const opts = Array.isArray(poll.options) ? poll.options : (poll.options ? Object.values(poll.options) : []);
+
     opts.forEach(opt => {
       const btn = document.createElement('button');
       btn.className = 'poll-option';
       btn.textContent = opt.label + ' (' + (opt.count || 0) + ')';
       btn.disabled = (remaining <= 0);
       btn.addEventListener('click', async () => {
-        // atomic increment strategy: transaction on pollRef/options to increase matching id count
         try {
           await pollRef.child('options').transaction(current => {
             if (!current) return current;
-            // current may be array or object
             if (Array.isArray(current)) {
               for (let i=0;i<current.length;i++) {
                 if (current[i].id === opt.id) { current[i].count = (current[i].count||0) + 1; break; }
@@ -315,37 +287,28 @@ function initPollListener(){
               return current;
             }
           });
-        } catch (e) {
-          console.error('vote transaction failed', e);
-        }
+        } catch (e) { console.error('vote transaction failed', e); }
       });
       popupOptions.appendChild(btn);
     });
 
-    // show popup
     show(popup);
     popupResult.style.display = 'none';
-    // start client-side timer to update countdown
-    if (pollLocalTimer) clearInterval(pollLocalTimer);
+
+    if (pollLocalTimer) { clearInterval(pollLocalTimer); pollLocalTimer = null; }
     pollLocalTimer = setInterval(() => {
       const now2 = now();
       const rem = Math.max(0, endAt - now2);
       popupTimer.textContent = '残り ' + Math.ceil(rem/1000) + ' 秒';
-      // update option buttons counts from DB snapshot (we will re-read pollRef once per interval for simplicity)
       if (rem <= 0) {
-        // time's up -> show results (compute percentages)
-        clearInterval(pollLocalTimer);
-        pollLocalTimer = null;
-        // read final poll state and render results
+        clearInterval(pollLocalTimer); pollLocalTimer = null;
         pollRef.once('value').then(s => {
           const final = s.val();
           if (!final) return;
           const finalOpts = Array.isArray(final.options) ? final.options : (final.options ? Object.values(final.options) : []);
-          // compute totals
           const total = finalOpts.reduce((acc,o)=>acc + (o.count||0), 0);
           popupOptions.innerHTML = '';
           popupTimer.textContent = '集計中...';
-          // render result bars and percents
           popupResult.style.display = 'block';
           popupResult.innerHTML = '';
           const resultsWrap = document.createElement('div'); resultsWrap.className = 'poll-results';
@@ -363,65 +326,52 @@ function initPollListener(){
           });
           popupResult.appendChild(resultsWrap);
           popupTimer.textContent = '終了';
-          // After 20s hide popup and clear pollRef (set active false)
           setTimeout(async () => {
-            // remove poll (or mark inactive)
-            try {
-              await pollRef.update({ active: false });
-            } catch (e) { console.error('disable poll failed', e); }
+            try { await pollRef.update({ active: false }); } catch (e) { console.error('disable poll failed', e); }
             hide(popup);
             popupOptions.innerHTML = '';
             popupResult.innerHTML = '';
             popupTimer.textContent = '';
-            // restore comments slide
             if (commentPanel) commentPanel.classList.remove('slid');
           }, 20_000);
         }).catch(e=>console.error('read final poll failed', e));
       } else {
-        // while ongoing, update option buttons text to latest counts periodically
+        // update counts in buttons periodically
         pollRef.once('value').then(s => {
           const up = s.val();
           if (!up || !up.options) return;
           const uopts = Array.isArray(up.options) ? up.options : Object.values(up.options);
-          // update existing buttons' text
           const buttons = popupOptions.querySelectorAll('button.poll-option');
           for (let i=0;i<buttons.length;i++){
             const b = buttons[i];
             const o = uopts[i];
             if (o) b.textContent = o.label + ' (' + (o.count||0) + ')';
           }
-        }).catch(e=>{});
+        }).catch(()=>{});
       }
-    }, 700); // update ~0.7s
+    }, 700);
   });
 }
 
-/* =========================
-   MYPAGE modal + profile upload via GAS
-   ========================= */
+/* ===== MyPage モーダル (ボタンで開く) ===== */
 function initMyPageModal(){
-  const saveBtn = el('saveMyPageBtn');
-  const closeBtn = el('closeMyPageBtn');
-  const myBio = el('myBio');
-
+  // 保存ボタン動作
   safeAdd('saveMyPageBtn','click', async () => {
     if (!auth.currentUser) return alert('ログインしてください');
-    const bio = myBio?.value || '';
-    // simple: store bio in users/{uid}/profile
+    const bio = el('myBio')?.value || '';
     try {
       await db.ref('users').child(auth.currentUser.uid).child('profile').update({ bio, updatedAt: now() });
       alert('保存しました');
+      hide(el('myPageModal'));
     } catch (e) {
       console.error('save profile failed', e);
       alert('保存に失敗しました');
     }
   });
-
-  // Profile image upload handled in initProfileUpload
-  initProfileUpload(); // ensures uploadProfileBtn wiring exists
+  // モーダルは initUiControls で open/close のボタンがバインドされています
 }
 
-/* profile upload (Apps Script) */
+/* ===== Profile Upload (GAS) ===== */
 function initProfileUpload(){
   const uploadBtn = el('uploadProfileBtn');
   const fileInput = el('profileImageFile');
@@ -453,18 +403,8 @@ function initProfileUpload(){
   });
 }
 
-/* =========================
-   GAMES: create/select modal, create shogi game, show game UI by sliding comments
-   - created game structure: { id, type:'shogi', hostUid, status:'lobby'|'running'|'finished', createdAt, players:{}, shogi:{ board, turn, moves }, activePlayers:{} }
-   - when created or started, commentPanel slides (same as poll) and gameArea shows
-   - when finished, restore comments
-   ========================= */
-const pieceImages = {
-  'p':'pawn.png','P':'pawn.png','l':'lance.png','L':'lance.png','n':'knight.png','N':'knight.png',
-  's':'silver.png','S':'silver.png','g':'gold.png','G':'gold.png','k':'king.png','K':'king.png',
-  'r':'rook.png','R':'rook.png','b':'bishop.png','B':'bishop.png',
-  '+p':'tokin.png'
-};
+/* ===== Games (将棋作成ポップアップ) ===== */
+const pieceImages = { 'p':'pawn.png','P':'pawn.png','l':'lance.png','L':'lance.png','n':'knight.png','N':'knight.png','s':'silver.png','S':'silver.png','g':'gold.png','G':'gold.png','k':'king.png','K':'king.png','r':'rook.png','R':'rook.png','b':'bishop.png','B':'bishop.png' };
 let selectedPiece = null;
 let currentGameIdLocal = null;
 let gameLocalState = null;
@@ -486,9 +426,7 @@ function initGameSelect(){
       };
       await gamesRef.child(gid).set(gameObj);
       hide(el('gameSelectModal'));
-      // open UI for the game (all clients will see created game in list; host opens)
       openGameUI(gid, gameObj);
-      // slide comments here (openGameUI handles slide when running; for consistent UX slide now)
       if (el('commentPanel')) el('commentPanel').classList.add('slid');
     } catch (e) {
       console.error('create shogi failed', e);
@@ -497,7 +435,6 @@ function initGameSelect(){
   });
 }
 
-/* initial shogi board */
 function initialShogiBoard(){
   return [
     ['l','n','s','g','k','g','s','n','l'],
@@ -512,7 +449,6 @@ function initialShogiBoard(){
   ];
 }
 
-/* subscribe game list for UI */
 function initGameListSubscribe(){
   const listEl = el('gamesList');
   if (!listEl) return;
@@ -528,13 +464,18 @@ function initGameListSubscribe(){
         row.addEventListener('click', ()=> openGameUI(g.id, g));
         listEl.appendChild(row);
       });
-    } catch (e) {
-      console.error('render games list failed', e);
+    } catch (e) { console.error('render games list failed', e); }
+  });
+
+  gamesRef.on('child_changed', snap => {
+    const g = snap.val();
+    if (!g) return;
+    if (g.status === 'finished' && el('commentPanel')) {
+      setTimeout(()=> el('commentPanel').classList.remove('slid'), 500);
     }
   });
 }
 
-/* open game UI and subscribe to that game's updates */
 function openGameUI(gid, initialObj){
   if (!gid) return;
   try { if (currentGameIdLocal) gamesRef.child(currentGameIdLocal).off('value'); } catch(e){}
@@ -542,7 +483,6 @@ function openGameUI(gid, initialObj){
   gameLocalState = initialObj || null;
   const ga = el('gameArea'); if (ga) ga.style.display = 'block';
   renderGameHeader(initialObj || {});
-  // subscribe
   gamesRef.child(gid).off('value');
   gamesRef.child(gid).on('value', snap => {
     const g = snap.val();
@@ -553,7 +493,6 @@ function openGameUI(gid, initialObj){
   });
 }
 
-/* render header controls */
 function renderGameHeader(game){
   const title = el('gameTitle'); if (title) title.textContent = game.type === 'shogi' ? '将棋（対戦）' : 'ゲーム';
   const controls = el('gameControls'); if (!controls) return;
@@ -577,14 +516,12 @@ function renderGameHeader(game){
   }
 }
 
-/* request join */
 async function requestJoinGame(gid){
   if (!auth.currentUser) return alert('ログインしてください');
   const u = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || 'ユーザー', accepted:false, ts: now() };
   try { await gamesRef.child(gid).child('players').child(u.uid).set(u); alert('参加希望を送信しました'); } catch(e){ console.error(e); alert('参加申請に失敗'); }
 }
 
-/* pick and start game (host picks one participant) */
 async function pickAndStartGame(gid){
   try {
     const snap = await gamesRef.child(gid).child('players').once('value');
@@ -600,15 +537,10 @@ async function pickAndStartGame(gid){
     updates['activePlayers'] = { [auth.currentUser.uid]: true, [pick.uid]: true };
     await gamesRef.child(gid).update(updates);
     await gamesRef.child(gid).child('shogi').set({ board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] });
-    // slide comments for game start
     if (el('commentPanel')) el('commentPanel').classList.add('slid');
-  } catch (e) {
-    console.error('pickAndStartGame error', e);
-    alert('開始処理でエラー');
-  }
+  } catch (e) { console.error('pickAndStartGame error', e); alert('開始処理でエラー'); }
 }
 
-/* render game state (shogi) */
 function renderGameState(game){
   if (!game) return;
   if (game.type === 'shogi') {
@@ -619,7 +551,6 @@ function renderGameState(game){
   }
 }
 
-/* render shogi board and interactions (simple pawn-only move implemented; extend as needed) */
 function renderShogiBoard(gid, shogiState){
   const container = el('shogiContainer');
   if (!container) return;
@@ -668,20 +599,16 @@ function renderShogiBoard(gid, shogiState){
   container.appendChild(grid);
 }
 function clearHighlights(){ document.querySelectorAll('.highlight').forEach(e => e.classList.remove('highlight')); }
-
-/* simple movement calc: pawn only (extend for full rules) */
 function calcMoves(piece, r, c, board){
   const moves = [];
   if (!piece) return moves;
   if (piece.toLowerCase() === 'p') {
     const dir = (piece === 'P') ? -1 : 1;
     const nr = r + dir;
-    if (nr >=0 && nr < 9 && board[nr][c] === '.') moves.push({ r: nr, c });
+    if (nr >=0 && nr <9 && board[nr][c] === '.') moves.push({ r: nr, c });
   }
   return moves;
 }
-
-/* make move with transaction */
 function makeShogiMove(gid, uid, from, to){
   if (!gid) return;
   const shogiRef = gamesRef.child(gid).child('shogi');
@@ -699,7 +626,6 @@ function makeShogiMove(gid, uid, from, to){
       current.board = board; current.moves = current.moves || []; current.moves.push({ by: uid, from, to, ts: now() });
       current.turn = null;
       gamesRef.child(gid).update({ status:'finished', finishedAt: now(), winnerUid: uid }).catch(e=>console.error('end update failed', e));
-      // restore comments after short delay
       setTimeout(()=> { if (el('commentPanel')) el('commentPanel').classList.remove('slid'); }, 2000);
       return current;
     }
@@ -711,48 +637,12 @@ function makeShogiMove(gid, uid, from, to){
     return current;
   }, (err)=> { if (err) console.error('makeShogiMove transaction error', err); });
 }
-
-/* end game (host) */
 async function endGame(gid){
   if (!gid) return;
   try {
     await gamesRef.child(gid).update({ status: 'finished', finishedAt: now() });
-    // remove game after short delay
     setTimeout(()=> { gamesRef.child(gid).remove().catch(()=>{}); if (el('commentPanel')) el('commentPanel').classList.remove('slid'); }, 2000);
   } catch (e) { console.error('endGame failed', e); }
 }
 
-/* =========================
-   Helpers: game subscriptions for changes (restore slide when finished)
-   ========================= */
-function initGameListSubscribe(){
-  const listEl = el('gamesList');
-  if (!listEl) return;
-  gamesRef.off('value');
-  gamesRef.on('value', snap => {
-    try {
-      listEl.innerHTML = '';
-      const val = snap.val() || {};
-      Object.values(val).forEach(g => {
-        const row = document.createElement('div');
-        row.className = 'game-row';
-        row.textContent = `${g.type || 'game'} [${g.status || 'lobby'}] - ${g.id}`;
-        row.addEventListener('click', ()=> openGameUI(g.id, g));
-        listEl.appendChild(row);
-      });
-    } catch (e) { console.error('render games list failed', e); }
-  });
-
-  // also listen for child_changed to un-slide when finished
-  gamesRef.on('child_changed', snap => {
-    const g = snap.val();
-    if (!g) return;
-    if (g.status === 'finished' && el('commentPanel')) {
-      setTimeout(()=> el('commentPanel').classList.remove('slid'), 500);
-    }
-  });
-}
-
-/* =========================
-   Initialization complete
-   ========================= */
+/* ===== 完了 ===== */
