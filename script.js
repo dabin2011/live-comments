@@ -17,14 +17,13 @@
  Firebase 初期化（設定を置き換えてください）
  ========================= */
 const firebaseConfig = {
-  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
-  authDomain: "shige-live.firebaseapp.com",
-  databaseURL: "https://shige-live-default-rtdb.firebaseio.com",
-  projectId: "shige-live",
-  storageBucket: "shige-live.firebasestorage.app",
-  messagingSenderId: "135620625815",
-  appId: "1:135620625815:web:514ba3dd5cd625c144f0d2",
-  measurementId: "G-5Y7F6V9668"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -34,7 +33,7 @@ const pollsRef = db.ref('polls');
 const gamesRef = db.ref('games');
 
 /* Apps Script URL（プロフィール画像アップロード用） */
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbXXXXXXXXXXXXXXXXXXXX/exec";
 
 /* =========================
  ユーティリティ
