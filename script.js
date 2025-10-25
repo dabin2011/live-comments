@@ -527,6 +527,7 @@ const pieceImages = {
   '+r': 'dragon.png',
   '+b': 'horse.png'
 };
+
 function startGameByHost(){
   try {
     if (!auth?.currentUser) return alert('ゲーム開始はログインが必要です');
@@ -540,6 +541,7 @@ function startGameByHost(){
     closeModal('gameModal');
   } catch(e){ console.error('startGame error', e); alert('ゲーム作成に失敗しました'); }
 }
+
 function openGameUI(gid, initialObj){
   if (!gid) return;
   try { if (currentGameId && gamesRef) gamesRef.child(currentGameId).off(); } catch(e){}
@@ -553,6 +555,7 @@ function openGameUI(gid, initialObj){
     gameLocalState = g; renderGameState(g); renderGameHeader(g);
   });
 }
+
 function renderGameHeader(game){
   const title = el('gameTitle'); title && (title.textContent = game.type === 'shogi' ? '将棋（対戦）' : 'ゲーム');
   const controls = el('gameControls'); if (!controls) return; controls.innerHTML = '';
@@ -574,12 +577,14 @@ function renderGameHeader(game){
     const info = document.createElement('span'); info.textContent='参加するにはログインしてください'; info.style.marginLeft='8px'; info.style.color='#666'; controls.appendChild(info);
   }
 }
+
 async function requestJoinGame(gid){
   if (!auth?.currentUser) return alert('ログインしてください');
   const u = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || 'ユーザー', accepted:false, ts: now() };
   gamesRef && await gamesRef.child(gid).child('players').child(u.uid).set(u);
   alert('参加希望を出しました。主催者が選出するまでお待ちください。');
 }
+
 async function pickAndStartGame(gid){
   try {
     if (!gamesRef) return alert('サーバ未接続のため簡易開始は不可');
@@ -598,6 +603,7 @@ async function pickAndStartGame(gid){
     await gamesRef.child(gid).child('shogi').set({ board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] });
   } catch(e){ console.error('pickAndStartGame error', e); }
 }
+
 function initialShogiBoard(){
   return [
     ['l','n','s','g','k','g','s','n','l'],
@@ -640,7 +646,9 @@ async function renderShogiBoard(gid, shogiState){
 
   for (let r=0;r<size;r++){
     for (let c=0;c<size;c++){
-      const sq = document.createElement('div'); sq.className='grid-cell'; sq.dataset.r=r; sq.dataset.c=c;
+      const sq = document.createElement('div'); 
+      sq.className='grid-cell'; 
+      sq.dataset.r=r; sq.dataset.c=c;
       const piece = board[r][c];
       if (piece && piece !== '.') {
         const img = document.createElement('img');
@@ -648,88 +656,11 @@ async function renderShogiBoard(gid, shogiState){
         const filename = pieceImages[piece] || 'pawn.png';
         img.src = `assets/koma/${filename}`;
         if (piece === piece.toLowerCase()) img.classList.add('koma-gote');
-+
-+       // クリックで移動可能マスをハイライト
-+       img.addEventListener('click', ()=>{
-+         clearHighlights();
-+         const moves = calcMoves(piece, r, c, board);
-+         moves.forEach(m=>{
-+           const target = grid.querySelector(`.grid-cell[data-r="${m.r}"][data-c="${m.c}"]`);
-+           if (target) target.classList.add('highlight');
-+         });
-+       });
-        sq.appendChild(img);
-      }
-      grid.appendChild(sq);
-    }
-  }
-  boardWrap.appendChild(grid); container.appendChild(boardWrap);
-}
-+
-+function clearHighlights(){
-+  document.querySelectorAll('.highlight').forEach(el=>el.classList.remove('highlight'));
-+}
-+
-+// 簡易的な移動計算（例: 歩だけ）
-+function calcMoves(piece, r, c, board){
-+  const moves = [];
-+  if (piece.toLowerCase() === 'p'){ 
-+    const dir = (piece === 'P') ? -1 : 1;
-+    const nr = r + dir;
-+    if (nr>=0 && nr<9 && board[nr][c]==='.') moves.push({r:nr,c});
-+  }
-+  return moves;
-+}
 
-async function makeShogiMove(gid, uid, from, to){
-  try {
-    if (!gamesRef) return;
-    const shogiRef = gamesRef.child(gid).child('shogi');
-    await shogiRef.transaction(current => {
-      if (!current) return current;
-      const board = current.board || initialShogiBoard();
-      const piece = board[from.r][from.c];
-      if (!piece || piece === '.') return;
-+
-+     // 勝敗判定：王を取ったら終了
-+     const target = board[to.r][to.c];
-+     if (target === 'k' || target === 'K') {
-+       if (uid === auth.currentUser.uid) {
-+         alert("あなたの勝利");
-+       } else {
-+         alert("あなたの負け");
-+       }
-+     }
-      board[to.r][to.c] = piece;
-      board[from.r][from.c] = '.';
-      const moves = current.moves || [];
-      moves.push({ by: uid, from, to, ts: now() });
-      const activePlayers = gameLocalState?.activePlayers ? Object.keys(gameLocalState.activePlayers) : [];
-      const other = activePlayers.find(u=>u!==uid) || uid;
-      current.board = board; current.moves = moves; current.turn = other;
-      return current;
-    });
-  } catch(e){ console.error('makeShogiMove error', e); }
-}
-
-async function endGame(gid, winnerUid){
-  try {
-    if (!gamesRef) return;
-    const updates = { status:'finished', finishedAt: now(), winnerUid: winnerUid || null };
-    await gamesRef.child(gid).update(updates);
-    setTimeout(async ()=>{ try { await gamesRef.child(gid).remove(); } catch(e){ console.warn('remove game failed', e); } closeGameUI(); }, 2000);
-  } catch(e){ console.error('endGame error', e); }
-}
-function closeGameUI(){ try { if (currentGameId && gamesRef) gamesRef.child(currentGameId).off(); } catch(e){} currentGameId=null; gameLocalState=null; const ga=el('gameArea'); ga && (ga.style.display='none'); }
-function initGameAutoSubscribe(){
-  try {
-    if (!gamesRef) return;
-    gamesRef.orderByChild('status').equalTo('lobby').on('child_added', snap=>{ const g=snap.val(); if(!g) return; if(!currentGameId) openGameUI(g.id,g); });
-    gamesRef.orderByChild('status').equalTo('running').on('child_added', snap=>{ const g=snap.val(); if(!g) return; openGameUI(g.id,g); });
-    gamesRef.on('child_changed', snap=>{ const g=snap.val(); if(!g) return; if (currentGameId === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); } });
-    gamesRef.on('child_removed', snap=>{ const removed = snap.val(); if(!removed) return; if (currentGameId === removed.id) closeGameUI(); });
-  } catch(e){ console.error('initGameAutoSubscribe error', e); }
-}
+        // クリックで移動可能マスをハイライト
+        img.addEventListener('click', ()=>{
+          clearHighlights();
+          const moves = calcMoves
 
 /* 呼び出し関連プレースホルダ（UI保持） */
 function openCallRequestPopup(uid){ const content = el('callRequestContent'); content && (content.innerHTML = `<div>ユーザー <strong>${escapeHtml(uid)}</strong> に通話リクエストを送りますか？</div>`); window._callTargetUid = uid; openModal('callRequestPopup'); }
