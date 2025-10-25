@@ -1,5 +1,5 @@
-// script.js — 修正版（デザインと機能は維持、コメント/アンケート/ゲーム表示不具合を修正）
-// 注意: firebaseConfig と GAS_URL を実環境の値に置き換えてください。
+// script.js — 完全版（コメント / アンケート / ゲームを全員に表示）
+// 必ず firebaseConfig と GAS_URL を実環境の値に置き換えてください。
 
 // ====== Firebase 設定を置き換えてください ======
 const firebaseConfig = {
@@ -11,6 +11,7 @@ const firebaseConfig = {
   messagingSenderId: "YOUR_SENDER_ID",
   appId: "YOUR_APP_ID"
 };
+
 if (typeof firebase === 'undefined') {
   console.error('Firebase SDK が読み込まれていません');
 } else if (!firebase.apps.length) {
@@ -24,7 +25,6 @@ const commentsRef = db.ref('comments');
 const pollsRef = db.ref('polls');
 const arrivalsRef = db.ref('arrivals');
 const presenceRefRoot = db.ref('presence');
-const callsRef = db.ref('calls');
 const gamesRef = db.ref('games');
 const usersRef = db.ref('users');
 
@@ -53,11 +53,10 @@ function el(id) { return document.getElementById(id); }
 function now() { return Date.now(); }
 function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
 
-// Modal helpers (robust)
+// Modal helpers
 window.openModal = function (id) {
   const m = el(id);
-  console.log('openModal', id, !!m);
-  if (!m) return;
+  if (!m) return console.warn('openModal: not found', id);
   m.style.display = 'flex';
   m.classList.add('open');
   m.setAttribute('aria-hidden', 'false');
@@ -67,27 +66,21 @@ window.openModal = function (id) {
 };
 window.closeModal = function (id) {
   const m = el(id);
-  console.log('closeModal', id, !!m);
-  if (!m) return;
+  if (!m) return console.warn('closeModal: not found', id);
   m.classList.remove('open');
   m.setAttribute('aria-hidden', 'true');
   m.style.display = 'none';
 };
 
-// DOM initialization — ensure runs after DOM ready
+// DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-  // modal close wiring
   document.querySelectorAll('.modal .close').forEach(btn => btn.addEventListener('click', () => {
     const id = btn.getAttribute('data-close') || btn.closest('.modal')?.id;
     if (id) closeModal(id);
   }));
-  document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => {
-    if (e.target === modal) closeModal(modal.id);
-  }));
+  document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) closeModal(modal.id); }));
 
-  // wire buttons safely (use defensive checks)
   const safeAdd = (id, ev, fn) => { const elc = document.getElementById(id); if (elc) elc.addEventListener(ev, fn); };
-
   safeAdd('sendBtn', 'click', sendComment);
   safeAdd('pollBtn', 'click', () => openModal('pollModal'));
   safeAdd('addPollOptionBtn', 'click', addPollOption);
@@ -113,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const uf = el('uploadForm'); if (uf) uf.addEventListener('submit', handleUploadForm);
 
-  // delegation for dynamic comment elements
   const commentsEl = el('comments');
   if (commentsEl) {
     commentsEl.addEventListener('click', ev => {
@@ -124,11 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // DB listeners
   arrivalsRef.on('child_added', snap => {
     const d = snap.val();
     if (d && d.type === 'arrival') showArrivalBanner(d.name || 'ゲスト');
-    // remove to avoid repeated banners
     snap.ref.remove().catch(() => { });
   });
 
@@ -137,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initGameAutoSubscribe();
 });
 
-// Arrival banner
+// Arrival
 function showArrivalBanner(name) {
   const b = el('arrivalBanner'); if (!b) return;
   b.textContent = `${escapeHtml(name)}さんが配信を視聴しに来ました`;
@@ -161,11 +151,7 @@ auth.onAuthStateChanged(async user => {
     arrivalsRef.push({ type: 'arrival', name, timestamp: now() }).catch(() => { });
     attachPresence(user.uid);
     listenIncomingCalls(user.uid);
-    try {
-      const snap = await usersRef.child(user.uid).child('points').once('value');
-      const pts = snap.val() || 0;
-      if (myPoints) myPoints.textContent = pts;
-    } catch (e) { console.warn(e); }
+    try { const snap = await usersRef.child(user.uid).child('points').once('value'); const pts = snap.val() || 0; if (myPoints) myPoints.textContent = pts; } catch (e) {}
   } else {
     if (loginBtn) loginBtn.style.display = 'inline-block';
     if (mypageBtn) mypageBtn.style.display = 'none';
@@ -177,64 +163,41 @@ auth.onAuthStateChanged(async user => {
   }
 });
 
-async function signUp() {
-  const email = el('email')?.value?.trim(); const password = el('password')?.value || '';
-  if (!email || !password) return alert('メールとパスワードを入力してください');
-  try { await auth.createUserWithEmailAndPassword(email, password); alert('登録しました'); closeModal('loginModal'); } catch (e) { console.error(e); alert('登録失敗: ' + (e.message || e)); }
-}
-async function signIn() {
-  const email = el('email')?.value?.trim(); const password = el('password')?.value || '';
-  if (!email || !password) return alert('メールとパスワードを入力してください');
-  try { await auth.signInWithEmailAndPassword(email, password); alert('ログインしました'); closeModal('loginModal'); } catch (e) { console.error(e); alert('ログイン失敗: ' + (e.message || e)); }
-}
-async function updateProfile() {
-  const user = auth.currentUser;
-  if (!user) return alert('ログインしてください');
-  const newName = el('newName')?.value?.trim();
-  if (!newName) return alert('ユーザー名を入力してください');
-  try {
-    await user.updateProfile({ displayName: newName });
-    const usernameEl = el('username'); if (usernameEl) usernameEl.textContent = newName;
-    alert('ユーザー名を更新しました');
-    closeModal('mypageModal');
-  } catch (err) { console.error(err); alert('更新失敗'); }
-}
+async function signUp() { const email = el('email')?.value?.trim(); const password = el('password')?.value || ''; if (!email || !password) return alert('メールとパスワードを入力してください'); try { await auth.createUserWithEmailAndPassword(email, password); alert('登録しました'); closeModal('loginModal'); } catch (e) { console.error(e); alert('登録失敗: ' + (e.message || e)); } }
+async function signIn() { const email = el('email')?.value?.trim(); const password = el('password')?.value || ''; if (!email || !password) return alert('メールとパスワードを入力してください'); try { await auth.signInWithEmailAndPassword(email, password); alert('ログインしました'); closeModal('loginModal'); } catch (e) { console.error(e); alert('ログイン失敗: ' + (e.message || e)); } }
+async function updateProfile() { const user = auth.currentUser; if (!user) return alert('ログインしてください'); const newName = el('newName')?.value?.trim(); if (!newName) return alert('ユーザー名を入力してください'); try { await user.updateProfile({ displayName: newName }); const usernameEl = el('username'); if (usernameEl) usernameEl.textContent = newName; alert('ユーザー名を更新しました'); closeModal('mypageModal'); } catch (err) { console.error(err); alert('更新失敗'); } }
 
 function attachPresence(uid) {
   if (!uid) return;
   myPresenceRef = presenceRefRoot.child(uid);
   myPresenceRef.set({ online: true, lastSeen: now() }).catch(() => { });
-  try { myPresenceRef.onDisconnect().set({ online: false, lastSeen: now() }).catch(() => { }); } catch (e) { }
+  try { myPresenceRef.onDisconnect().set({ online: false, lastSeen: now() }).catch(() => { }); } catch (e) {}
 }
 function detachPresence() {
   if (myPresenceRef) {
     myPresenceRef.set({ online: false, lastSeen: now() }).catch(() => { });
-    try { myPresenceRef.onDisconnect().cancel(); } catch (e) { }
+    try { myPresenceRef.onDisconnect().cancel(); } catch (e) {}
     myPresenceRef = null;
   }
 }
 
-// Comments — ensure earliest calculation and live update
+// Comments
 function initComments() {
-  // compute earliest time (if any) robustly
   commentsRef.orderByChild('ts').limitToFirst(1).once('value').then(snap => {
     let earliest = null;
     snap.forEach(child => { const d = child.val(); if (d && d.ts) earliest = d.ts; });
     firstCommentTime = earliest || now();
   }).catch(() => { firstCommentTime = now(); });
 
-  // listen for last 500 comments; if DB empty still set up listener for future adds
   commentsRef.orderByChild('ts').limitToLast(500).on('child_added', snap => {
     const d = snap.val(); if (!d) return;
-    // filter older than 3 hours from the earliest loaded baseline
     if (d.ts && (d.ts - (firstCommentTime || now()) > THREE_HOURS)) return;
     renderComment(d);
-  }, err => console.warn('comments listener error', err));
+  }, err => console.warn('comments on error', err));
 }
 
 function renderComment(d) {
   const commentsEl = el('comments'); if (!commentsEl) return;
-  // avoid duplicates by checking an id attribute if present
   const idKey = d._id || (d.uid ? `${d.uid}_${d.ts || 0}` : `c_${Math.random()}`);
   if (commentsEl.querySelector(`[data-cid="${idKey}"]`)) return;
 
@@ -259,10 +222,8 @@ function renderComment(d) {
   div.appendChild(meta);
   div.appendChild(right);
 
-  // insert at top to keep newest first visually
   commentsEl.insertBefore(div, commentsEl.firstChild || null);
 
-  // presence listener
   if (d.uid) {
     presenceRefRoot.child(d.uid).on('value', snap => {
       const v = snap.val();
@@ -284,7 +245,7 @@ function sendComment() {
   commentsRef.push(payload).then(() => { input.value = ''; }).catch(err => { console.error('コメント保存エラー', err); alert('送信失敗'); });
 }
 
-// Polls (unchanged behavior but robust)
+// Polls
 function addPollOption() {
   const wrap = el('pollOptionsWrapper'); if (!wrap) return;
   const input = document.createElement('input'); input.type = 'text'; input.className = 'pollOptionInput'; input.placeholder = '選択肢';
@@ -401,18 +362,17 @@ async function finalizePoll() {
   } catch (err) { console.error('finalizePoll error', err); }
 }
 
-// Calls — stubs / keep integration points
+// Calls placeholders
 function openCallRequestPopup(uid) {
   const content = el('callRequestContent'); if (content) content.innerHTML = `<div>ユーザー <strong>${escapeHtml(uid)}</strong> に通話リクエストを送りますか？</div>`;
-  window._callTargetUid = uid;
-  openModal('callRequestPopup');
+  window._callTargetUid = uid; openModal('callRequestPopup');
 }
-function sendCallRequestFromPopup() { /* implement your call request send logic (WebRTC signaling) */ }
-function listenIncomingCalls(myUid) { /* implement incoming call DB listener if used */ }
-function stopListeningIncomingCalls() { /* detach listeners if any */ }
-function respondToIncomingCall(result) { /* accept/reject handling */ }
+function sendCallRequestFromPopup() { /* implement signaling */ }
+function listenIncomingCalls(myUid) { /* implement if needed */ }
+function stopListeningIncomingCalls() { /* cleanup */ }
+function respondToIncomingCall(result) { /* accept/reject */ }
 
-// Upload handler (GAS)
+// Upload
 function handleUploadForm(e) {
   e && e.preventDefault();
   const file = el('imageFile')?.files?.[0];
@@ -424,9 +384,7 @@ function handleUploadForm(e) {
   }).catch(err => alert('アップロード失敗：' + (err.message || err)));
 }
 
-// ---------------- Game features (将棋) ----------------
-
-// Anyone logged-in can start a game. The first one who creates the game node is hostUid.
+// Game features — everyone sees games like polls
 function isHost() {
   if (gameLocalState && gameLocalState.hostUid) return !!auth.currentUser && auth.currentUser.uid === gameLocalState.hostUid;
   return !!auth.currentUser;
@@ -438,48 +396,42 @@ async function startGameByHost() {
   if (!chosen) return alert('ゲームを選択してください');
   const gameType = chosen.getAttribute('data-game');
   const spectatorsAllowed = !!el('publicGame')?.checked;
-
-  // create new game node (first creator becomes host)
   const gid = gamesRef.push().key;
-  const gameObj = {
-    id: gid,
-    type: gameType,
-    hostUid: auth.currentUser.uid,
-    status: 'lobby',
-    createdAt: now(),
-    players: {},
-    spectatorsAllowed: !!spectatorsAllowed,
-    winnerUid: null
-  };
+  const gameObj = { id: gid, type: gameType, hostUid: auth.currentUser.uid, status: 'lobby', createdAt: now(), players: {}, spectatorsAllowed: !!spectatorsAllowed, winnerUid: null };
   try {
     await gamesRef.child(gid).set(gameObj);
     openGameUI(gid, gameObj);
     closeModal('gameModal');
-  } catch (err) {
-    console.error('startGame error', err);
-    alert('ゲーム作成に失敗しました');
-  }
+  } catch (err) { console.error('startGame error', err); alert('ゲーム作成に失敗しました'); }
 }
 
+// Open game UI for everyone; running games take precedence
 function openGameUI(gid, initialObj) {
   if (!gid) return;
+  try { if (currentGameId) gamesRef.child(currentGameId).off(); } catch (e) {}
   currentGameId = gid;
   gameLocalState = initialObj || null;
   const ga = el('gameArea'); if (ga) ga.style.display = 'block';
   renderGameHeader(initialObj || {});
-  // detach previous listener if any
-  try { gamesRef.child(gid).off(); } catch (e) { }
   gamesRef.child(gid).on('value', snap => {
     const g = snap.val();
     if (!g) { closeGameUI(); return; }
     gameLocalState = g;
     renderGameState(g);
+    renderGameHeader(g);
   });
 }
 
 function renderGameHeader(game) {
   const title = el('gameTitle'); if (title) title.textContent = game.type === 'shogi' ? '将棋（対戦）' : 'ゲーム';
   const controls = el('gameControls'); if (!controls) return; controls.innerHTML = '';
+
+  const statusBadge = document.createElement('span'); statusBadge.textContent = game.status || 'lobby'; statusBadge.style.marginRight = '8px'; statusBadge.style.fontWeight = '700';
+  controls.appendChild(statusBadge);
+
+  const hostInfo = document.createElement('span'); hostInfo.textContent = game.hostUid ? `主催: ${game.hostUid}` : '主催: なし'; hostInfo.style.marginRight = '12px'; hostInfo.style.opacity = '0.85';
+  controls.appendChild(hostInfo);
+
   if (auth.currentUser) {
     if (game.status === 'lobby') {
       const joinBtn = document.createElement('button'); joinBtn.textContent = '参加希望'; joinBtn.addEventListener('click', () => requestJoinGame(game.id));
@@ -494,6 +446,9 @@ function renderGameHeader(game) {
         controls.appendChild(endBtn);
       }
     }
+  } else {
+    const info = document.createElement('span'); info.textContent = '参加するにはログインしてください'; info.style.marginLeft = '8px'; info.style.color = '#666';
+    controls.appendChild(info);
   }
 }
 
@@ -636,38 +591,47 @@ async function endGame(gid, winnerUid) {
       try {
         const snap = await usersRef.child(winnerUid).child('points').once('value');
         const pts = snap.val() || 0;
-        if (auth.currentUser && auth.currentUser.uid === winnerUid) {
-          const myPoints = el('myPoints'); if (myPoints) myPoints.textContent = pts;
-        }
-      } catch (e) { console.warn(e); }
+        if (auth.currentUser && auth.currentUser.uid === winnerUid) { const myPoints = el('myPoints'); if (myPoints) myPoints.textContent = pts; }
+      } catch (e) {}
     }
     setTimeout(async () => { try { await gamesRef.child(gid).remove(); } catch (e) { console.warn('remove game failed', e); } closeGameUI(); }, 2000);
   } catch (err) { console.error('endGame error', err); }
 }
 
 function closeGameUI() {
-  if (!currentGameId) return;
-  try { gamesRef.child(currentGameId).off(); } catch (e) { }
-  currentGameId = null; gameLocalState = null;
+  if (currentGameId) {
+    try { gamesRef.child(currentGameId).off(); } catch (e) {}
+  }
+  currentGameId = null;
+  gameLocalState = null;
   const ga = el('gameArea'); if (ga) ga.style.display = 'none';
 }
 
+// Subscribe so everyone sees games
 function initGameAutoSubscribe() {
-  // subscribe to running games; keep limit reasonable
-  gamesRef.orderByChild('status').equalTo('running').on('child_added', snap => {
-    const g = snap.val();
-    if (!g) return;
-    // open first running game only if none open locally
+  gamesRef.orderByChild('status').equalTo('lobby').on('child_added', snap => {
+    const g = snap.val(); if (!g) return;
     if (!currentGameId) openGameUI(g.id, g);
   });
+
+  gamesRef.orderByChild('status').equalTo('running').on('child_added', snap => {
+    const g = snap.val(); if (!g) return;
+    openGameUI(g.id, g);
+  });
+
   gamesRef.on('child_changed', snap => {
-    const g = snap.val();
-    if (!g) return;
-    if (g.status === 'running' && !currentGameId) openGameUI(g.id, g);
+    const g = snap.val(); if (!g) return;
+    if (currentGameId === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); }
+  });
+
+  gamesRef.on('child_removed', snap => {
+    const removed = snap.val();
+    if (!removed) return;
+    if (currentGameId === removed.id) closeGameUI();
   });
 }
 
-// Debug helper
+// Debug
 window.checkDebug = function () {
   console.log('firebase loaded?', typeof firebase !== 'undefined');
   console.log('auth.currentUser', auth.currentUser);
