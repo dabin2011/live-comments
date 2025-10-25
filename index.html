@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>コメント・アンケート・通話・ゲーム</title>
+  <title>コメント・アンケート・通話・将棋</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -27,7 +27,7 @@
     </div>
   </div>
 
-  <!-- My page modal -->
+  <!-- My page modal (アバター・資産アップロード) -->
   <div id="mypageModal" class="modal" aria-hidden="true">
     <div class="modal-content">
       <button class="close" data-close="mypageModal">&times;</button>
@@ -42,10 +42,23 @@
           </div>
         </div>
       </div>
-      <form id="uploadForm" enctype="multipart/form-data" style="margin-top:8px;">
+
+      <h3>駒・盤のカスタム画像 (任意)</h3>
+      <div>
+        <label>駒画像（単一駒画像 or 個別）: <input type="file" id="pieceImageFile" accept="image/*" /></label>
+        <button id="uploadPieceBtn">駒画像アップロード</button>
+      </div>
+      <div style="margin-top:8px;">
+        <label>盤画像: <input type="file" id="boardImageFile" accept="image/*" /></label>
+        <button id="uploadBoardBtn">盤画像アップロード</button>
+      </div>
+      <div id="assetPreview" style="margin-top:8px;"></div>
+
+      <form id="uploadForm" enctype="multipart/form-data" style="margin-top:12px;display:none;">
         <input type="file" id="imageFile" name="imageFile" accept="image/*" />
         <button type="submit">画像アップロード</button>
       </form>
+
       <div style="margin-top:12px;">保有ポイント: <strong id="myPoints">0</strong>pt</div>
     </div>
   </div>
