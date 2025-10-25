@@ -5,12 +5,13 @@
 /* 設定（Firebase Console の値で必ず置換） */
 const firebaseConfig = {
   apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  authDomain: "shige-live.firebaseapp.com",
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com",
+  projectId: "shige-live",
+  storageBucket: "shige-live.firebasestorage.app",
+  messagingSenderId: "135620625815",
+  appId: "1:135620625815:web:514ba3dd5cd625c144f0d2",
+  measurementId: "G-5Y7F6V9668"
 };
 
 /* Apps Script の公開WebアプリURL（プロフィール画像アップロードに使用） */
