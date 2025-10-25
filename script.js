@@ -352,3 +352,277 @@ function voteOption(optId) {
 async function finalizePoll() {
   const activeRef = pollsRef.child('active');
   try { const snap = await activeRef.once('value'); const poll = snap.val(); if (!poll) return; if (poll.state === 'finished') return; await activeRef.update({ state: 'finished', finishedAt: now() }); await pollsRef.child('history').push(poll).catch(() => {}); if (_pollTimers.has('active')) { clearInterval(_pollTimers.get('active')); _pollTimers.delete('active'); } } catch (err) { console.error('finalizePoll error', err); }
+
+// Calls placeholders
+function openCallRequestPopup(uid) { const content = el('callRequestContent'); if (content) content.innerHTML = `<div>ユーザー <strong>${escapeHtml(uid)}</strong> に通話リクエストを送りますか？</div>`; window._callTargetUid = uid; openModal('callRequestPopup'); }
+function sendCallRequestFromPopup() { /* implement signaling */ }
+function listenIncomingCalls(myUid) { /* implement if needed */ }
+function stopListeningIncomingCalls() { /* cleanup */ }
+function respondToIncomingCall(result) { /* accept/reject */ }
+
+// Upload helpers (GAS)
+async function uploadFileToGAS(file) {
+  const fd = new FormData(); fd.append('file', file);
+  const res = await fetch(GAS_URL, { method: 'POST', body: fd });
+  if (!res.ok) throw new Error('upload failed');
+  const text = await res.text();
+  return text.trim();
+}
+
+async function uploadPieceImage() {
+  const f = el('pieceImageFile')?.files?.[0];
+  if (!f) return alert('駒画像を選んでください');
+  try {
+    const url = await uploadFileToGAS(f);
+    const uid = auth.currentUser?.uid;
+    if (!uid) return alert('ログインしてください');
+    await usersRef.child(uid).child('assets').update({ pieceUrl: url });
+    showAssetPreview(url, '駒画像をアップロードしました');
+  } catch (err) { console.error(err); alert('アップロード失敗'); }
+}
+
+async function uploadBoardImage() {
+  const f = el('boardImageFile')?.files?.[0];
+  if (!f) return alert('盤画像を選んでください');
+  try {
+    const url = await uploadFileToGAS(f);
+    const uid = auth.currentUser?.uid;
+    if (!uid) return alert('ログインしてください');
+    await usersRef.child(uid).child('assets').update({ boardUrl: url });
+    showAssetPreview(url, '盤画像をアップロードしました');
+  } catch (err) { console.error(err); alert('アップロード失敗'); }
+}
+
+function showAssetPreview(url, msg) {
+  const p = el('assetPreview');
+  if (!p) return;
+  p.innerHTML = `${msg}<div style="margin-top:6px;"><img src="${url}" style="max-width:160px;max-height:160px;display:block;border:1px solid #ddd;padding:4px;background:#fff" /></div>`;
+}
+
+// Game features (将棋) — 画像駒で表示、後手は回転で表現
+function isHost() { if (gameLocalState && gameLocalState.hostUid) return !!auth.currentUser && auth.currentUser.uid === gameLocalState.hostUid; return !!auth.currentUser; }
+
+async function startGameByHost() {
+  if (!auth.currentUser) return alert('ゲーム開始はログインが必要です');
+  const chosen = document.querySelector('.gameChoice[data-selected="true"]');
+  if (!chosen) return alert('ゲームを選択してください');
+  const gameType = chosen.getAttribute('data-game');
+  const spectatorsAllowed = !!el('publicGame')?.checked;
+  const gid = gamesRef.push().key;
+  const gameObj = { id: gid, type: gameType, hostUid: auth.currentUser.uid, status: 'lobby', createdAt: now(), players: {}, spectatorsAllowed: !!spectatorsAllowed, winnerUid: null };
+  try { await gamesRef.child(gid).set(gameObj); openGameUI(gid, gameObj); closeModal('gameModal'); } catch (err) { console.error('startGame error', err); alert('ゲーム作成に失敗しました'); }
+}
+
+function openGameUI(gid, initialObj) {
+  if (!gid) return;
+  try { if (currentGameId) gamesRef.child(currentGameId).off(); } catch (e) {}
+  currentGameId = gid;
+  gameLocalState = initialObj || null;
+  const ga = el('gameArea'); if (ga) ga.style.display = 'block';
+  renderGameHeader(initialObj || {});
+  gamesRef.child(gid).on('value', snap => {
+    const g = snap.val();
+    if (!g) { closeGameUI(); return; }
+    gameLocalState = g;
+    renderGameState(g);
+    renderGameHeader(g);
+  });
+}
+
+function renderGameHeader(game) {
+  const title = el('gameTitle'); if (title) title.textContent = game.type === 'shogi' ? '将棋（対戦）' : 'ゲーム';
+  const controls = el('gameControls'); if (!controls) return; controls.innerHTML = '';
+  const statusBadge = document.createElement('span'); statusBadge.textContent = game.status || 'lobby'; statusBadge.style.marginRight = '8px'; statusBadge.style.fontWeight = '700';
+  controls.appendChild(statusBadge);
+  const hostInfo = document.createElement('span'); hostInfo.textContent = game.hostUid ? `主催: ${game.hostUid}` : '主催: なし'; hostInfo.style.marginRight = '12px'; hostInfo.style.opacity = '0.85';
+  controls.appendChild(hostInfo);
+  if (auth.currentUser) {
+    if (game.status === 'lobby') {
+      const joinBtn = document.createElement('button'); joinBtn.textContent = '参加希望'; joinBtn.addEventListener('click', () => requestJoinGame(game.id));
+      controls.appendChild(joinBtn);
+      if (auth.currentUser.uid === game.hostUid) {
+        const pickBtn = document.createElement('button'); pickBtn.textContent = '参加者から選出して開始'; pickBtn.addEventListener('click', () => pickAndStartGame(game.id));
+        controls.appendChild(pickBtn);
+      }
+    } else if (game.status === 'running') {
+      if (auth.currentUser.uid === game.hostUid) {
+        const endBtn = document.createElement('button'); endBtn.textContent = '強制終了'; endBtn.addEventListener('click', () => endGame(game.id, null));
+        controls.appendChild(endBtn);
+      }
+    }
+  } else {
+    const info = document.createElement('span'); info.textContent = '参加するにはログインしてください'; info.style.marginLeft = '8px'; info.style.color = '#666';
+    controls.appendChild(info);
+  }
+}
+
+async function requestJoinGame(gid) { if (!auth.currentUser) return alert('ログインしてください'); const u = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || 'ユーザー', accepted: false, ts: now() }; await gamesRef.child(gid).child('players').child(u.uid).set(u); alert('参加希望を出しました。主催者が選出するまでお待ちください。'); }
+
+async function pickAndStartGame(gid) {
+  const snap = await gamesRef.child(gid).child('players').once('value');
+  const players = []; snap.forEach(ch => { const v = ch.val(); if (v && v.uid) players.push(v); });
+  const candidates = players.filter(p => p.uid !== auth.currentUser.uid);
+  if (candidates.length === 0) return alert('参加希望者がいません');
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  const updates = {};
+  updates[`players/${auth.currentUser.uid}`] = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || '主催者', accepted: true, role: 'host', ts: now() };
+  updates[`players/${pick.uid}`] = { uid: pick.uid, name: pick.name, accepted: true, role: 'player', ts: now() };
+  updates['status'] = 'running';
+  updates['startedAt'] = now();
+  updates['activePlayers'] = { [auth.currentUser.uid]: true, [pick.uid]: true };
+  await gamesRef.child(gid).update(updates);
+  await gamesRef.child(gid).child('shogi').set({ board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] });
+}
+
+function initialShogiBoard() {
+  return [
+    ['l','n','s','g','k','g','s','n','l'],
+    ['.','r','.','.','.','.','.','b','.'],
+    ['p','p','p','p','p','p','p','p','p'],
+    ['.','.','.','.','.','.','.','.','.'],
+    ['.','.','.','.','.','.','.','.','.'],
+    ['.','.','.','.','.','.','.','.','.'],
+    ['P','P','P','P','P','P','P','P','P'],
+    ['.','B','.','.','.','.','.','R','.'],
+    ['L','N','S','G','K','G','S','N','L']
+  ];
+}
+
+async function renderShogiBoard(gid, shogiState) {
+  const container = el('shogiContainer'); if (!container) return;
+  container.innerHTML = '';
+
+  // board background (game assets -> user assets -> default background color)
+  let boardUrl = null;
+  try { if (gameLocalState && gameLocalState.assets && gameLocalState.assets.boardUrl) boardUrl = gameLocalState.assets.boardUrl; } catch (e) {}
+  const boardWrap = document.createElement('div'); boardWrap.className = 'shogiBoard';
+  if (boardUrl) { boardWrap.style.backgroundImage = `url(${boardUrl})`; boardWrap.style.backgroundSize = 'cover'; boardWrap.style.backgroundPosition = 'center'; }
+  boardWrap.style.position = 'relative'; boardWrap.style.padding = '8px'; boardWrap.style.boxSizing = 'border-box';
+
+  const size = 9;
+  const grid = document.createElement('div'); grid.className = 'grid'; grid.style.display = 'grid'; grid.style.gridTemplateColumns = `repeat(${size},1fr)`; grid.style.gap = '2px'; grid.style.width = '100%'; grid.style.height = '100%';
+
+  const board = shogiState.board || initialShogiBoard();
+  let selected = null;
+  const urlCache = {};
+
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const sq = document.createElement('div'); sq.className = 'grid-cell';
+      sq.dataset.r = r; sq.dataset.c = c;
+      sq.style.minHeight = `${Math.floor(320/9)}px`;
+
+      const piece = board[r][c];
+
+      if (piece && piece !== '.') {
+        const img = document.createElement('img');
+        img.style.maxWidth = '70%';
+        img.style.maxHeight = '70%';
+        img.alt = piece;
+
+        if (urlCache[piece]) {
+          img.src = urlCache[piece];
+        } else {
+          img.src = PIECE_IMG_MAP[piece] || '';
+          resolvePieceImageUrl(piece).then(url => { if (url) { urlCache[piece] = url; img.src = url; } }).catch(()=>{});
+        }
+
+        const isSente = piece === piece.toUpperCase();
+        if (!isSente) img.classList.add('koma-gote'); else img.classList.remove('koma-gote');
+
+        sq.appendChild(img);
+      }
+
+      // click handler (選択・移動)
+      sq.addEventListener('click', async () => {
+        const myUid = auth.currentUser?.uid;
+        const game = gameLocalState;
+        if (!game) return;
+        if (game.status !== 'running') return;
+        if (!game.activePlayers || !game.activePlayers[myUid]) return;
+        const turn = (shogiState.turn || '');
+        if (turn !== myUid) return alert('相手の手番です');
+        if (!selected) {
+          if (board[r][c] === '.') return;
+          selected = { r, c, piece: board[r][c] };
+          sq.style.outline = '3px solid rgba(26,115,232,0.6)';
+        } else {
+          const from = selected; const to = { r, c };
+          await makeShogiMove(gid, auth.currentUser.uid, from, to);
+          selected = null;
+        }
+      });
+
+      grid.appendChild(sq);
+    }
+  }
+
+  boardWrap.appendChild(grid);
+  container.appendChild(boardWrap);
+
+  // controls
+  const controls = document.createElement('div'); controls.className = 'shogiControls';
+  const playersDiv = document.createElement('div');
+  const players = gameLocalState.players || {};
+  const list = Object.values(players).map(p => `<div class="playerBadge">${escapeHtml(p.name || p.uid)}${p.role ? ' (' + p.role + ')' : ''}</div>`).join('');
+  playersDiv.innerHTML = `<div style="font-weight:700;margin-bottom:8px">参加者</div>${list}`;
+  controls.appendChild(playersDiv);
+  if (auth.currentUser && gameLocalState.activePlayers && gameLocalState.activePlayers[auth.currentUser.uid]) {
+    const resignBtn = document.createElement('button'); resignBtn.textContent = '降参（敗北）';
+    resignBtn.addEventListener('click', () => { const otherUid = Object.keys(gameLocalState.activePlayers).find(u => u !== auth.currentUser.uid); endGame(gid, otherUid); });
+    controls.appendChild(resignBtn);
+  }
+  container.appendChild(controls);
+}
+
+async function makeShogiMove(gid, uid, from, to) {
+  const shogiRef = gamesRef.child(gid).child('shogi');
+  await shogiRef.transaction(current => {
+    if (!current) return current;
+    const board = current.board || initialShogiBoard();
+    const piece = board[from.r][from.c];
+    if (!piece || piece === '.') return;
+    board[to.r][to.c] = piece;
+    board[from.r][from.c] = '.';
+    const moves = current.moves || [];
+    moves.push({ by: uid, from, to, ts: now() });
+    const activePlayers = gameLocalState.activePlayers ? Object.keys(gameLocalState.activePlayers) : [];
+    const other = activePlayers.find(u => u !== uid) || uid;
+    current.board = board;
+    current.moves = moves;
+    current.turn = other;
+    return current;
+  });
+}
+
+async function endGame(gid, winnerUid) {
+  try {
+    const updates = { status: 'finished', finishedAt: now(), winnerUid: winnerUid || null };
+    await gamesRef.child(gid).update(updates);
+    if (winnerUid) {
+      const pRef = usersRef.child(winnerUid).child('points');
+      await pRef.transaction(cur => (cur || 0) + 100);
+      try { const snap = await usersRef.child(winnerUid).child('points').once('value'); const pts = snap.val() || 0; if (auth.currentUser && auth.currentUser.uid === winnerUid) { const myPoints = el('myPoints'); if (myPoints) myPoints.textContent = pts; } } catch (e) {}
+    }
+    setTimeout(async () => { try { await gamesRef.child(gid).remove(); } catch (e) { console.warn('remove game failed', e); } closeGameUI(); }, 2000);
+  } catch (err) { console.error('endGame error', err); }
+}
+
+function closeGameUI() {
+  if (currentGameId) {
+    try { gamesRef.child(currentGameId).off(); } catch (e) {}
+  }
+  currentGameId = null;
+  gameLocalState = null;
+  const ga = el('gameArea'); if (ga) ga.style.display = 'none';
+}
+
+function initGameAutoSubscribe() {
+  gamesRef.orderByChild('status').equalTo('lobby').on('child_added', snap => { const g = snap.val(); if (!g) return; if (!currentGameId) openGameUI(g.id, g); });
+  gamesRef.orderByChild('status').equalTo('running').on('child_added', snap => { const g = snap.val(); if (!g) return; openGameUI(g.id, g); });
+  gamesRef.on('child_changed', snap => { const g = snap.val(); if (!g) return; if (currentGameId === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); } });
+  gamesRef.on('child_removed', snap => { const removed = snap.val(); if (!removed) return; if (currentGameId === removed.id) closeGameUI(); });
+}
+
+// Debug
+window.checkDebug = function () { console.log('firebase loaded?', typeof firebase !== 'undefined'); console.log('auth.currentUser', auth.currentUser); console.log('DOM elements:', { comments: !!el('comments'), pollArea: !!el('pollArea'), gameArea: !!el('gameArea') }); };
