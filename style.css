@@ -1,78 +1,46 @@
 :root{
-  --bg:#f7f7f8;
-  --card:#fff;
-  --muted:#777;
-  --accent:#1a73e8;
-  --border:#e6e6e6;
-  --gap:12px;
+  --bg:#f7f7f8; --panel:#ffffff; --accent:#2b7cff; --muted:#666; --border:#e6e6e6;
+  --maxw:1100px;
 }
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,Arial;background:var(--bg);color:#222}
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border)}
-.topbar .left,.topbar .center,.topbar .right{display:flex;align-items:center;gap:8px}
-.small-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;background:#eee}
-.container{display:flex;gap:16px;padding:16px;max-width:1200px;margin:18px auto}
-.leftColumn{flex:1;min-width:320px}
-.rightColumn{width:420px}
-.arrivalBanner{display:none;padding:10px;border-radius:6px;background:#ff6b6b;color:#fff;margin-bottom:10px;font-weight:700;text-align:center}
-.poll-area{margin-bottom:12px}
-.poll-content{background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)}
-.poll-header{display:flex;align-items:center;justify-content:space-between}
-.poll-question{font-weight:700}
-.poll-options{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-.poll-option{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:#fff;border:1px solid #f0f0f0;cursor:pointer}
-.poll-option .bar{height:10px;background:#eee;border-radius:6px;flex:1;position:relative;overflow:hidden}
-.poll-option .bar > i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);width:0%;transition:width 400ms}
-.poll-option .percent{min-width:44px;text-align:right;font-weight:700;color:var(--muted)}
+body{font-family:system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Segoe UI", Roboto, sans-serif; margin:0; background:var(--bg); color:#222}
+.topbar{background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:10px 20px;max-width:var(--maxw);margin:0 auto}
+.brand{margin:0;font-size:18px}
+.auth{display:flex;align-items:center;gap:8px}
+.avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)}
+.container{max-width:var(--maxw);margin:20px auto;padding:0 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.panel{background:var(--panel);border:1px solid var(--border);padding:16px;border-radius:8px;min-height:120px}
+.row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.input{flex:1;padding:8px;border:1px solid #ddd;border-radius:6px}
+.btn{padding:8px 12px;border:1px solid #cfcfcf;background:#fff;border-radius:6px;cursor:pointer}
+.btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+.list{max-height:360px;overflow:auto;padding:8px;border-top:1px dashed var(--border);margin-top:12px}
+.list.small{max-height:160px}
+.comment{padding:8px;border-bottom:1px solid #f0f0f0}
+.comment-head{display:flex;justify-content:space-between;font-size:13px;color:#333}
+.comment-body{margin-top:6px;color:#111}
+.muted{color:var(--muted);font-size:13px}
 
-.commentsContainer{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;max-height:520px;overflow:hidden}
-#comments{display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-right:6px;max-height:440px}
-.comment{display:flex;gap:10px;align-items:flex-start;padding:8px;border-bottom:1px solid #f4f4f4}
-.comment .avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#eee}
-.avatarWrap{position:relative}
-.presence-dot{position:absolute;right:-6px;bottom:-6px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:#ccc;box-shadow:0 1px 2px rgba(0,0,0,0.12)}
-.presence-online{background:#3ddc84}
-.presence-offline{background:#ccc}
-.comment .meta{flex:1}
-.call-badge{margin-left:8px;padding:6px 8px;border-radius:12px;background:#eaf6ff;color:var(--accent);font-weight:700;border:1px solid #cfe9ff;cursor:pointer}
+/* poll area */
+.options{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 
-.commentForm{display:flex;gap:8px;margin-top:10px}
-.commentForm input[type="text"]{flex:1;padding:10px;border-radius:22px;border:1px solid var(--border);background:#fff}
-.commentForm button{padding:8px 14px;border-radius:22px;border:1px solid var(--border);background:#fff;cursor:pointer}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-inner{background:#fff;padding:18px;border-radius:10px;min-width:320px;max-width:420px;border:1px solid var(--border)}
+.footer{text-align:center;padding:12px;color:var(--muted);font-size:13px}
 
-.controls{background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)}
-.gameArea{margin-top:12px;border-radius:8px;border:1px solid var(--border);background:var(--card)}
-.game-header{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f4f4f4}
-#shogiContainer{padding:12px;display:flex;gap:12px;align-items:flex-start;min-height:360px}
+/* 将棋ボード（シンプル） */
+.shogi .grid{display:grid;grid-template-columns:repeat(9,46px);grid-auto-rows:46px;gap:4px;justify-content:start}
+.grid-cell{width:46px;height:46px;border:1px solid #e3c9b0;background:#fff;display:flex;align-items:center;justify-content:center;position:relative}
+.grid-cell.highlight{outline:3px solid rgba(255,0,0,0.6)}
+.grid-cell img{width:36px;height:36px;object-fit:contain}
+.koma-gote{transform:rotate(180deg);opacity:0.95}
+.gamePanel{margin-top:12px;padding:12px;border:1px dashed var(--border)}
+.game-row{cursor:pointer;padding:8px;border-bottom:1px solid #fafafa}
 
-/* 将棋盤 */
-.shogiBoard{width:360px;height:360px;background:#f5e7c4;border-radius:6px;padding:8px;box-sizing:border-box;display:flex;flex-direction:column}
-.grid{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;flex:1}
-.grid-cell{display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,0.06);min-height:34px;background:transparent;cursor:pointer}
-.shogiBoard img{display:block;max-width:70%;max-height:70%;user-select:none;pointer-events:none}
-.shogiBoard img.koma-gote{transform:rotate(180deg);transform-origin:center center}
-
-/* モーダル共通 */
-.modal-backdrop{position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.45);opacity:0;pointer-events:none;visibility:hidden;transition:opacity .18s ease,visibility .18s ease;z-index:10000}
-.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.98);min-width:280px;max-width:92%;z-index:10001;display:none;opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
-.modal.open{display:block;opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
-.modal.open ~ .modal-backdrop{opacity:1;pointer-events:auto;visibility:visible}
-.modal .modal-content{background:var(--card);padding:16px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.18)}
-.modal .modal-content.small{max-width:420px}
-.modal .close{position:absolute;top:8px;right:10px;border:none;background:transparent;font-size:18px;cursor:pointer}
-.modal input[type="text"], .modal input[type="email"], .modal input[type="password"]{display:block;width:100%;padding:8px;margin:8px 0;border:1px solid var(--border);border-radius:6px}
-.modal .modal-actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
-.form-error{color:#b00020;font-weight:700;margin-bottom:6px}
-
-/* フッター */
-.footer{padding:12px;text-align:center;color:#666;font-size:13px}
-
-/* ゲーム選択 */
-.gameChoice{padding:8px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:#fff;margin-bottom:8px}
-.gameChoice[data-selected="true"]{background:var(--accent);color:#fff;border-color:rgba(0,0,0,0.08)}
-
-/* アセットプレビュー */
-.assetPreview img{max-width:100%;height:auto;border-radius:6px;border:1px solid var(--border)}
-
-/* 共通ボタン */
-.controlBtn{padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer}
+/* responsive */
+@media (max-width:520px){
+  .shogi .grid{grid-template-columns:repeat(9,32px);grid-auto-rows:32px;gap:2px}
+  .grid-cell{width:32px;height:32px}
+  .grid-cell img{width:24px;height:24px}
+}
