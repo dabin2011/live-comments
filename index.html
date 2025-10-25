@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>配信 + コメント + 将棋</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Firebase SDKs must be included separately (not included here) -->
+  <!-- 必須: Firebase SDK をここに追加すること -->
 </head>
 <body>
   <header class="topbar">
@@ -26,10 +26,10 @@
 
   <main class="container">
     <section class="leftColumn">
-      <div id="arrivalBanner" class="arrivalBanner"></div>
+      <div id="arrivalBanner" class="arrivalBanner" aria-hidden="true"></div>
 
       <!-- Poll area -->
-      <div id="pollArea" class="poll-area" style="display:none">
+      <div id="pollArea" class="poll-area" style="display:none" aria-hidden="true">
         <div id="pollContent" class="poll-content"></div>
         <div id="pollTimer" class="poll-timer" aria-hidden="true"></div>
       </div>
@@ -55,23 +55,25 @@
           <button id="uploadBoardBtn">盤画像アップ</button>
         </div>
 
-        <div id="gameArea" class="gameArea" style="display:none">
+        <div id="gameArea" class="gameArea" style="display:none" aria-hidden="true">
           <div class="game-header">
             <div id="gameControls"></div>
             <div id="gameInfo"></div>
           </div>
-          <div id="shogiContainer" class="shogiContainer"></div>
+          <div id="shogiContainer" class="shogiContainer" role="region" aria-label="将棋盤"></div>
         </div>
 
-        <div id="assetPreview" class="assetPreview"></div>
+        <div id="assetPreviewMain" class="assetPreview"></div>
       </div>
     </aside>
   </main>
 
-  <!-- Modals -->
-  <div id="pollModal" class="modal" aria-hidden="true">
+  <!-- Modals (構造を統一、重複ID削除、フォーカス可能要素を先頭に配置) -->
+  <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true"></div>
+
+  <div id="pollModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="pollModal">
     <div class="modal-content">
-      <button class="close" data-close="pollModal">✕</button>
+      <button class="close" data-close="pollModal" aria-label="閉じる">✕</button>
       <h3>アンケート作成</h3>
       <input id="pollQuestion" type="text" placeholder="質問を入力" />
       <div id="pollOptionsWrapper" class="pollOptionsWrapper">
@@ -85,19 +87,19 @@
     </div>
   </div>
 
-  <div id="gameModal" class="modal" aria-hidden="true">
+  <div id="gameModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="gameModal">
     <div class="modal-content small">
-      <button class="close" data-close="gameModal">✕</button>
+      <button class="close" data-close="gameModal" aria-label="閉じる">✕</button>
       <h3>ゲーム作成</h3>
-      <div class="gameChoice" data-game="shogi" role="button">将棋</div>
+      <div class="gameChoice" data-game="shogi" role="button" tabindex="0">将棋</div>
       <label><input id="publicGame" type="checkbox" /> 観戦許可</label>
       <div class="modal-actions"><button id="startGameBtn" type="button">開始</button></div>
     </div>
   </div>
 
-  <div id="loginModal" class="modal" aria-hidden="true">
+  <div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="loginModal">
     <div class="modal-content small">
-      <button class="close" data-close="loginModal">✕</button>
+      <button class="close" data-close="loginModal" aria-label="閉じる">✕</button>
       <h3>ログイン / 新規登録</h3>
       <input id="email" type="email" placeholder="メール" />
       <input id="password" type="password" placeholder="パスワード" />
@@ -108,11 +110,11 @@
     </div>
   </div>
 
-  <div id="mypageModal" class="modal" aria-hidden="true">
+  <div id="mypageModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="mypageModal">
     <div class="modal-content">
-      <button class="close" data-close="mypageModal">✕</button>
+      <button class="close" data-close="mypageModal" aria-label="閉じる">✕</button>
       <h3>マイページ</h3>
-      <div id="assetPreview"></div>
+      <div id="assetPreview" class="assetPreview"></div>
       <div style="margin-top:12px">
         <label>新しい表示名 <input id="newName" type="text" /></label>
         <button id="updateNameBtn" type="button">更新</button>
@@ -128,9 +130,9 @@
     </div>
   </div>
 
-  <div id="callRequestPopup" class="modal" aria-hidden="true">
+  <div id="callRequestPopup" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="callRequestPopup">
     <div class="modal-content small">
-      <button class="close" data-close="callRequestPopup">✕</button>
+      <button class="close" data-close="callRequestPopup" aria-label="閉じる">✕</button>
       <div id="callRequestContent"></div>
       <div class="modal-actions">
         <button id="callSendBtn" type="button">送信</button>
