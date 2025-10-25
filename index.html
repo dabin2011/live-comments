@@ -3,158 +3,96 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>配信 + コメント + 将棋</title>
-
-  <!-- スタイル -->
+  <title>統合アプリ（コメント / アンケート / 将棋 / プロフィール）</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Firebase SDK (compat 版) を必ずこの順番で読み込む -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <!-- Firebase SDK（必ず先に読み込む） -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <div class="left">
-      <button id="loginBtn" class="controlBtn">ログイン</button>
-      <button id="mypageBtn" class="controlBtn" style="display:none">マイページ</button>
-      <button id="logoutBtn" class="controlBtn" style="display:none">ログアウト</button>
+    <h1 class="brand">MyApp</h1>
+    <div id="loginArea" class="auth">
+      <button id="openLoginBtn" class="btn">ログイン</button>
     </div>
-    <div class="center">
-      <strong id="gameTitle">配信ページ</strong>
-    </div>
-    <div class="right">
+    <div id="userArea" class="auth" style="display:none;">
+      <img id="avatar" class="avatar" src="" alt="avatar"/>
       <span id="username"></span>
-      <img id="avatar" alt="" class="small-avatar" />
-      <span id="myPoints" class="points"></span>
+      <button id="logoutBtn" class="btn">ログアウト</button>
     </div>
   </header>
 
   <main class="container">
-    <section class="leftColumn">
-      <div id="arrivalBanner" class="arrivalBanner" aria-hidden="true"></div>
-
-      <div id="pollArea" class="poll-area" style="display:none" aria-hidden="true">
-        <div id="pollContent" class="poll-content"></div>
-        <div id="pollTimer" class="poll-timer" aria-hidden="true"></div>
+    <section class="panel">
+      <h2>コメント</h2>
+      <div id="commentControls" class="row">
+        <input id="commentInput" class="input" placeholder="コメントを入力" />
+        <button id="sendCommentBtn" class="btn">送信</button>
       </div>
-
-      <div id="commentsContainer" class="commentsContainer">
-        <div id="comments" class="comments" aria-live="polite"></div>
-      </div>
-
-      <form id="form" class="commentForm" onsubmit="event.preventDefault();">
-        <input id="commentInput" type="text" placeholder="コメントを入力..." autocomplete="off" />
-        <button id="sendBtn" type="button">送信</button>
-      </form>
+      <div id="commentList" class="list"></div>
     </section>
 
-    <aside class="rightColumn">
-      <div class="controls">
-        <div class="gameControlsTop">
-          <button id="pollBtn" class="controlBtn">アンケート作成</button>
-          <button id="gameBtn" class="controlBtn">ゲーム</button>
+    <section class="panel">
+      <h2>アンケート作成</h2>
+      <div id="pollEditor">
+        <input id="pollQuestion" class="input" placeholder="質問を入力" />
+        <div id="pollOptionsContainer" class="options"></div>
+        <div class="row">
+          <button id="addPollOptionBtn" class="btn">選択肢を追加</button>
+          <button id="createPollBtn" class="btn primary">アンケート作成</button>
         </div>
-
-        <div id="gameArea" class="gameArea" style="display:none" aria-hidden="true">
-          <div class="game-header">
-            <div id="gameControls"></div>
-            <div id="gameInfo"></div>
-          </div>
-          <div id="shogiContainer" class="shogiContainer" role="region" aria-label="将棋盤"></div>
-        </div>
-
-        <div id="assetPreviewMain" class="assetPreview"></div>
       </div>
-    </aside>
+      <div id="pollArea" class="list"></div>
+    </section>
+
+    <section class="panel">
+      <h2>ゲーム（将棋）</h2>
+      <div class="row">
+        <button id="createGameBtn" class="btn">ゲーム作成</button>
+        <button id="startGameBtn" class="btn">開始（主催のみ）</button>
+      </div>
+      <div id="gamesList" class="list small"></div>
+
+      <div id="gameArea" class="gamePanel" style="display:none;">
+        <div id="gameHeader" class="row">
+          <h3 id="gameTitle">将棋</h3>
+          <div id="gameControls"></div>
+        </div>
+        <div id="gameInfo" class="muted"></div>
+        <div id="shogiContainer" class="shogi"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>マイページ</h2>
+      <div class="row">
+        <input id="profileImageFile" type="file" accept="image/*" />
+        <button id="uploadProfileBtn" class="btn">プロフィール画像アップロード</button>
+      </div>
+    </section>
   </main>
 
-  <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true"></div>
-
-  <!-- アンケート作成 -->
-  <div id="pollModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="pollModal">
-    <div class="modal-content">
-      <button class="close" data-close="pollModal" aria-label="閉じる">✕</button>
-      <h3>アンケート作成</h3>
-      <input id="pollQuestion" type="text" placeholder="質問を入力" />
-      <div id="pollOptionsWrapper" class="pollOptionsWrapper">
-        <input class="pollOptionInput" type="text" placeholder="選択肢1" />
-        <input class="pollOptionInput" type="text" placeholder="選択肢2" />
+  <!-- ログインポップアップモーダル -->
+  <div id="loginModal" class="modal" aria-hidden="true" style="display:none;">
+    <div class="modal-inner">
+      <h3>ログイン</h3>
+      <label>メール</label>
+      <input id="emailInput" type="email" class="input" />
+      <label>パスワード</label>
+      <input id="passwordInput" type="password" class="input" />
+      <div class="row">
+        <button id="loginBtn" class="btn primary">ログイン</button>
+        <button id="closeLoginBtn" class="btn">閉じる</button>
       </div>
-      <div class="modal-actions">
-        <button id="addPollOptionBtn" type="button">選択肢追加</button>
-        <button id="createPollBtn" type="button">作成</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ゲーム作成 -->
-  <div id="gameModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="gameModal">
-    <div class="modal-content small">
-      <button class="close" data-close="gameModal" aria-label="閉じる">✕</button>
-      <h3>ゲーム作成</h3>
-      <div class="gameChoice" data-game="shogi" role="button" tabindex="0">将棋</div>
-      <label><input id="publicGame" type="checkbox" /> 観戦許可</label>
-      <div class="modal-actions"><button id="startGameBtn" type="button">開始</button></div>
-    </div>
-  </div>
-
-  <!-- ログイン/新規登録 -->
-  <div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="loginModal">
-    <div class="modal-content small">
-      <button class="close" data-close="loginModal" aria-label="閉じる">✕</button>
-      <h3>ログイン / 新規登録</h3>
-      <div id="loginError" class="form-error" aria-live="assertive"></div>
-      <input id="email" type="email" placeholder="メール" />
-      <input id="password" type="password" placeholder="パスワード" />
-      <div class="modal-actions">
-        <button id="signinBtn" type="button">ログイン</button>
-        <button id="signupBtn" type="button">登録</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- マイページ -->
-  <div id="mypageModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="mypageModal">
-    <div class="modal-content">
-      <button class="close" data-close="mypageModal" aria-label="閉じる">✕</button>
-      <h3>マイページ</h3>
-      <div id="assetPreview" class="assetPreview"></div>
-
-      <div style="margin-top:12px">
-        <label>新しい表示名 <input id="newName" type="text" /></label>
-        <button id="updateNameBtn" type="button">更新</button>
-      </div>
-
-      <form id="profileUploadForm" style="margin-top:12px" onsubmit="event.preventDefault();">
-        <div>
-          <label>プロフィール画像: <input id="profileImageFile" type="file" accept="image/*" /></label>
-        </div>
-        <div style="margin-top:8px">
-          <button id="uploadProfileBtn" type="button">アップロード</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 通話リクエスト（ダイアログのみ保持） -->
-  <div id="callRequestPopup" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="callRequestPopup">
-    <div class="modal-content small">
-      <button class="close" data-close="callRequestPopup" aria-label="閉じる">✕</button>
-      <div id="callRequestContent"></div>
-      <div class="modal-actions">
-        <button id="callSendBtn" type="button">送信</button>
-        <button id="callCancelBtn" type="button">キャンセル</button>
-      </div>
+      <div class="muted">※アカウントは Firebase Authentication で作成してください</div>
     </div>
   </div>
 
   <footer class="footer">
-    <small>© Example</small>
+    <small>© MyApp</small>
   </footer>
 
-  <!-- アプリ本体 -->
   <script src="script.js"></script>
 </body>
 </html>
