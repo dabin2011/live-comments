@@ -1,21 +1,6 @@
-/* script.js - コメント修正済みの完全版（ログイン / コメント / アンケート / 将棋 / プロフィール画像アップロード） */
+/* script.js - 修正版（ログインポップアップ / コメント / アンケート / 将棋 / プロフィール） */
 
-/*
- 前提（HTMLに存在すること）:
- loginArea, userArea, emailInput, passwordInput, loginBtn, logoutBtn, username, avatar,
- commentInput, sendCommentBtn, commentList,
- pollQuestion, pollOptionsContainer, addPollOptionBtn, createPollBtn, pollArea,
- profileImageFile, uploadProfileBtn,
- gameArea, shogiContainer, gamesList, createGameBtn, startGameBtn, gameTitle, gameControls, gameInfo
- CSS: .grid, .grid-cell, .highlight, .koma-gote 等を用意してください
- Firebase SDK を読み込み、firebaseConfig を正しく設定してください
- GAS_URL は Apps Script のデプロイURL に置き換えてください
- assets/koma/ に駒画像を配置してください
-*/
-
-/* =========================
- Firebase 初期化（設定を置き換えてください）
- ========================= */
+/* ---------- 必須設定（置き換えてください） ---------- */
 const firebaseConfig = {
   apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "shige-live.firebaseapp.com",
@@ -26,6 +11,9 @@ const firebaseConfig = {
   appId: "1:135620625815:web:514ba3dd5cd625c144f0d2",
   measurementId: "G-5Y7F6V9668"
 };
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
+
+/* ---------- Firebase 初期化 ---------- */
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
@@ -33,91 +21,83 @@ const commentsRef = db.ref('comments');
 const pollsRef = db.ref('polls');
 const gamesRef = db.ref('games');
 
-/* Apps Script URL（プロフィール画像アップロード用） */
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
-
-/* =========================
- ユーティリティ
- ========================= */
+/* ---------- ユーティリティ ---------- */
 function el(id){ return document.getElementById(id) || null; }
 function now(){ return Date.now(); }
 function escapeHtml(s){ if (s == null) return ''; return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m])); }
-function safeAddListener(id, event, fn){ const e = el(id); if (e) e.addEventListener(event, fn); }
+function show(elm){ if (!elm) return; elm.style.display = 'block'; elm.setAttribute('aria-hidden','false'); }
+function hide(elm){ if (!elm) return; elm.style.display = 'none'; elm.setAttribute('aria-hidden','true'); }
 
-/* =========================
- DOMContentLoaded で初期化
- ========================= */
+/* ---------- DOMContentLoaded で初期化 ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-  initAuthUI();
+  initUIControls();
+  initAuth();
   initCommentFeature();
   initPollFeature();
   initProfileUpload();
   initGameFeature();
+  initGameListSubscribe();
 });
 
-/* =========================
- 認証 UI
- ========================= */
-function initAuthUI(){
-  safeAddListener('loginBtn','click', () => {
+/* ---------- UI コントロール（モーダル開閉） ---------- */
+function initUIControls(){
+  const loginModal = el('loginModal');
+  safeAdd('openLoginBtn','click', ()=> show(loginModal));
+  safeAdd('closeLoginBtn','click', ()=> hide(loginModal));
+  // モーダル外クリックで閉じる
+  if (loginModal) loginModal.addEventListener('click', (ev)=>{ if (ev.target === loginModal) hide(loginModal); });
+  // ESC で閉じる
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(loginModal); });
+}
+function safeAdd(id, ev, fn){ const e = el(id); if (e) e.addEventListener(ev, fn); }
+
+/* ---------- 認証処理 ---------- */
+function initAuth(){
+  safeAdd('loginBtn','click', async ()=>{
     const email = el('emailInput')?.value || '';
     const password = el('passwordInput')?.value || '';
     if (!email || !password) return alert('メールとパスワードを入力してください');
-    auth.signInWithEmailAndPassword(email, password).catch(e=>{
-      console.error('signIn error', e);
+    try {
+      await auth.signInWithEmailAndPassword(email, password);
+      hide(el('loginModal'));
+    } catch(e){
+      console.error('login error', e);
       alert('ログイン失敗: ' + (e.message || e));
-    });
+    }
   });
 
-  safeAddListener('logoutBtn','click', () => {
-    auth.signOut().catch(e=>console.error('signOut failed', e));
-  });
+  safeAdd('logoutBtn','click', ()=> auth.signOut().catch(e=>console.error('signOut failed', e)));
 
   auth.onAuthStateChanged(user => {
-    try {
-      if (user) {
-        if (el('loginArea')) el('loginArea').style.display = 'none';
-        if (el('userArea')) el('userArea').style.display = 'block';
-        if (el('username')) el('username').textContent = user.displayName || user.email || '';
-        if (el('avatar')) el('avatar').src = user.photoURL || '';
-      } else {
-        if (el('loginArea')) el('loginArea').style.display = 'block';
-        if (el('userArea')) el('userArea').style.display = 'none';
-        if (el('username')) el('username').textContent = '';
-        if (el('avatar')) el('avatar').src = '';
-      }
-    } catch(e){ console.error('onAuthStateChanged handler error', e); }
+    if (user) {
+      if (el('loginArea')) el('loginArea').style.display = 'none';
+      if (el('userArea')) el('userArea').style.display = 'flex';
+      if (el('username')) el('username').textContent = user.displayName || user.email || user.uid;
+      if (el('avatar')) el('avatar').src = user.photoURL || '';
+    } else {
+      if (el('loginArea')) el('loginArea').style.display = 'flex';
+      if (el('userArea')) el('userArea').style.display = 'none';
+      if (el('username')) el('username').textContent = '';
+      if (el('avatar')) el('avatar').src = '';
+    }
   });
 }
 
-/* =========================
- コメント機能（確実に動くように修正）
- - 重要点:
-   1) DOM要素の存在チェックを厳密に行う
-   2) コメント送信は auth.currentUser を必ず確認
-   3) child_added は既存と新規を拾う（limitToLastで過去分を取得）
-   4) データ構造を明確にして表示する（XSS対策で escapeHtml）
- ========================= */
+/* ---------- コメント機能 ---------- */
 function initCommentFeature(){
   const sendBtn = el('sendCommentBtn');
   const input = el('commentInput');
   const list = el('commentList');
+  if (!sendBtn || !input || !list) { console.warn('コメント要素不足'); return; }
 
-  if (!sendBtn || !input || !list) {
-    console.warn('コメント機能の要素が不足しています: sendCommentBtn/commentInput/commentList を確認してください');
-    return;
-  }
-
-  // 送信ボタン
-  sendBtn.addEventListener('click', async () => {
+  // 送信
+  sendBtn.addEventListener('click', async ()=>{
+    const text = input.value.trim();
+    if (!text) return alert('コメントを入力してください');
+    const user = auth.currentUser;
+    if (!user) return alert('ログインしてください');
+    sendBtn.disabled = true;
     try {
-      const text = input.value.trim();
-      if (!text) return alert('コメントを入力してください');
-      const user = auth.currentUser;
-      if (!user) return alert('ログインしてください');
-
-      // push 直前にボタン無効化（多重送信対策）
-      sendBtn.disabled = true;
       await commentsRef.push({
         uid: user.uid,
         name: user.displayName || user.email || 'ユーザー',
@@ -133,58 +113,46 @@ function initCommentFeature(){
     }
   });
 
-  // child_added: 初期取得とその後の追加を拾う
-  // limitToLast を使う場合は on('child_added') を複数回呼ばないよう注意
-  // 一度登録しておけば常時監視される
-  commentsRef.limitToLast(200).on('child_added', snap => {
+  // 表示（過去200件＋新着）
+  // 既存 handler を一旦外して重複を防ぐ
+  commentsRef.limitToLast(200).off('child_added');
+  commentsRef.limitToLast(200).on('child_added', snap=>{
     try {
       const d = snap.val();
       if (!d) return;
-      // 要素を作る（単純な構造）
       const row = document.createElement('div');
       row.className = 'comment';
-      // タイムスタンプがあるなら整形表示（任意）
       const time = d.ts ? new Date(d.ts).toLocaleString() : '';
       row.innerHTML = `<div class="comment-head"><strong>${escapeHtml(d.name)}</strong><span class="comment-time">${escapeHtml(time)}</span></div><div class="comment-body">${escapeHtml(d.text)}</div>`;
-      // 最新が上に来るように prepend
+      // 新着を上に
       const first = list.firstChild;
       if (first) list.insertBefore(row, first); else list.appendChild(row);
     } catch(err){
       console.error('render comment failed', err);
     }
   });
-
-  // エラー監視（オプション）
-  commentsRef.on('value', snap => {
-    // noop: 主要な表示は child_added で行っているが、デバッグ用に残す
-  }, err => {
-    console.error('commentsRef on error', err);
-  });
 }
 
-/* =========================
- アンケート機能（省略なく安定動作）
- ========================= */
+/* ---------- アンケート機能 ---------- */
 function initPollFeature(){
   const createBtn = el('createPollBtn');
   const addOptionBtn = el('addPollOptionBtn');
   const optionsContainer = el('pollOptionsContainer');
   const pollArea = el('pollArea');
-  if (!createBtn || !optionsContainer || !pollArea) {
-    console.warn('アンケート機能の要素が不足しています');
-    return;
-  }
+  if (!createBtn || !optionsContainer || !pollArea) { console.warn('poll elements missing'); return; }
 
+  // 最低2つの選択肢を準備
   if (optionsContainer.querySelectorAll('.pollOption').length < 2) {
     for (let i=0;i<2;i++){
-      const inp = document.createElement('input'); inp.type='text'; inp.className='pollOption'; inp.placeholder = '選択肢';
+      const inp = document.createElement('input'); inp.type='text'; inp.className='pollOption'; inp.placeholder='選択肢';
       optionsContainer.appendChild(inp);
     }
   }
 
-  addOptionBtn && addOptionBtn.addEventListener('click', ()=>{
+  addOptionBtn && addOptionBtn.addEventListener('click', ()=> {
     const inp = document.createElement('input'); inp.type='text'; inp.className='pollOption'; inp.placeholder='選択肢';
     optionsContainer.appendChild(inp);
+    inp.focus();
   });
 
   createBtn.addEventListener('click', async ()=>{
@@ -196,13 +164,20 @@ function initPollFeature(){
       if (labels.length < 2) return alert('選択肢を2つ以上用意してください');
       const options = labels.map(label => ({ id: Math.random().toString(36).slice(2), label, count: 0 }));
       await pollsRef.child('active').set({ question, options });
+      // clear editor
+      el('pollQuestion').value = '';
+      optionsContainer.innerHTML = '';
+      // re-add two blanks
+      for (let i=0;i<2;i++){ const inp = document.createElement('input'); inp.type='text'; inp.className='pollOption'; inp.placeholder='選択肢'; optionsContainer.appendChild(inp); }
+      alert('アンケートを作成しました');
     } catch(e){ console.error('create poll failed', e); alert('アンケート作成に失敗しました'); }
   });
 
-  pollsRef.child('active').on('value', snap => {
+  // 表示と投票
+  pollsRef.child('active').off('value');
+  pollsRef.child('active').on('value', snap=>{
     try {
-      const poll = snap.val();
-      pollArea.innerHTML = '';
+      const poll = snap.val(); pollArea.innerHTML = '';
       if (!poll) return;
       const h = document.createElement('h3'); h.textContent = poll.question || '';
       pollArea.appendChild(h);
@@ -231,13 +206,12 @@ function initPollFeature(){
   });
 }
 
-/* =========================
- プロフィール画像アップロード（Apps Script 経由）
- ========================= */
+/* ---------- プロフィール画像アップロード（Apps Script経由） ---------- */
 function initProfileUpload(){
   const uploadBtn = el('uploadProfileBtn');
   const fileInput = el('profileImageFile');
-  if (!uploadBtn || !fileInput) { console.warn('プロフィールアップロード要素が不足しています'); return; }
+  if (!uploadBtn || !fileInput) { console.warn('profile upload elements missing'); return; }
+
   uploadBtn.addEventListener('click', async ()=>{
     if (!auth.currentUser) return alert('ログインしてください');
     const file = fileInput.files && fileInput.files[0];
@@ -246,7 +220,7 @@ function initProfileUpload(){
       const form = new FormData();
       form.append('uid', auth.currentUser.uid);
       form.append('file', file, file.name);
-      const res = await fetch(GAS_URL, { method: 'POST', body: form });
+      const res = await fetch(GAS_URL, { method:'POST', body: form });
       if (!res.ok) throw new Error('GAS upload failed: ' + res.status);
       const data = await res.json();
       if (data && data.url) {
@@ -254,33 +228,19 @@ function initProfileUpload(){
         if (el('avatar')) el('avatar').src = data.url;
         alert('プロフィール画像を更新しました');
       } else {
-        console.error('GAS returned invalid:', data);
+        console.error('GAS returned invalid', data);
         alert('アップロードに失敗しました');
       }
-    } catch(e){ console.error('uploadProfile error', e); alert('アップロード中にエラーが発生しました'); }
+    } catch(e){ console.error('uploadProfile error', e); alert('アップロードエラー'); }
   });
 }
 
-/* =========================
- 将棋ゲーム機能
- （コメントで指摘のあった箇所を壊さないように注意）
- ========================= */
-
+/* ---------- 将棋ゲーム機能（作成 / リスト / 開始 / 描画 / 移動） ---------- */
 const pieceImages = {
-  'p': 'pawn.png','P': 'pawn.png',
-  'l': 'lance.png','L': 'lance.png',
-  'n': 'knight.png','N': 'knight.png',
-  's': 'silver.png','S': 'silver.png',
-  'g': 'gold.png','G': 'gold.png',
-  'k': 'king.png','K': 'king.png',
-  'r': 'rook.png','R': 'rook.png',
-  'b': 'bishop.png','B': 'bishop.png',
-  '+p': 'tokin.png',
-  '+s': 'promoted_silver.png',
-  '+n': 'promoted_knight.png',
-  '+l': 'promoted_lance.png',
-  '+r': 'dragon.png',
-  '+b': 'horse.png'
+  'p':'pawn.png','P':'pawn.png','l':'lance.png','L':'lance.png','n':'knight.png','N':'knight.png',
+  's':'silver.png','S':'silver.png','g':'gold.png','G':'gold.png','k':'king.png','K':'king.png',
+  'r':'rook.png','R':'rook.png','b':'bishop.png','B':'bishop.png',
+  '+p':'tokin.png','+s':'promoted_silver.png','+n':'promoted_knight.png','+l':'promoted_lance.png','+r':'dragon.png','+b':'horse.png'
 };
 
 let selectedPiece = null;
@@ -301,41 +261,33 @@ function initialShogiBoard(){
   ];
 }
 
-/* ゲーム初期化 */
 function initGameFeature(){
-  safeAddListener('createGameBtn','click', async ()=>{
+  safeAdd('createGameBtn','click', async ()=>{
     if (!auth.currentUser) return alert('ログインしてください');
     try {
       const gid = gamesRef.push().key;
       const gameObj = {
-        id: gid,
-        type: 'shogi',
-        hostUid: auth.currentUser.uid,
-        status: 'lobby',
-        createdAt: now(),
-        players: { [auth.currentUser.uid]: { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email, accepted: true, role:'host', ts: now() } },
+        id: gid, type: 'shogi', hostUid: auth.currentUser.uid, status:'lobby', createdAt: now(),
+        players:{ [auth.currentUser.uid]: { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email, accepted:true, role:'host', ts: now() } },
         shogi: { board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] },
         activePlayers: { [auth.currentUser.uid]: true }
       };
       await gamesRef.child(gid).set(gameObj);
       openGameUI(gid, gameObj);
-    } catch(e){ console.error('create game failed', e); alert('ゲーム作成に失敗しました'); }
+    } catch(e){ console.error('create game failed', e); alert('ゲーム作成失敗'); }
   });
 
-  safeAddListener('startGameBtn','click', async ()=>{
-    if (!currentGameIdLocal) return alert('ゲームを選んでください');
+  safeAdd('startGameBtn','click', async ()=>{
+    if (!currentGameIdLocal) return alert('ゲームを選択してください');
     try { await gamesRef.child(currentGameIdLocal).update({ status:'running', startedAt: now() }); }
-    catch(e){ console.error('startGameBtn failed', e); }
+    catch(e){ console.error('startGame failed', e); }
   });
-
-  initGameListSubscribe();
-  initGameAutoSubscribe();
 }
 
-/* ゲーム一覧購読 */
 function initGameListSubscribe(){
   const listEl = el('gamesList');
-  if (!listEl) { console.warn('gamesList 要素がありません'); return; }
+  if (!listEl) return;
+  gamesRef.off('value');
   gamesRef.on('value', snap=>{
     try {
       listEl.innerHTML = '';
@@ -351,30 +303,28 @@ function initGameListSubscribe(){
   });
 }
 
-/* オートサブスクライブ */
 function initGameAutoSubscribe(){
-  try {
-    gamesRef.orderByChild('status').equalTo('lobby').on('child_added', ()=>{});
-    gamesRef.orderByChild('status').equalTo('running').on('child_added', ()=>{});
-    gamesRef.on('child_changed', snap=> {
-      const g = snap.val(); if (!g) return;
-      if (currentGameIdLocal === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); }
-    });
-    gamesRef.on('child_removed', snap=> {
-      const removed = snap.val(); if (!removed) return;
-      if (currentGameIdLocal === removed.id) closeGameUI();
-    });
-  } catch(e){ console.error('initGameAutoSubscribe error', e); }
+  // child change notifications handled in openGameUI subscription
+  gamesRef.on('child_changed', snap => {
+    const g = snap.val();
+    if (!g) return;
+    if (currentGameIdLocal === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); }
+  });
+  gamesRef.on('child_removed', snap => {
+    const r = snap.val();
+    if (!r) return;
+    if (currentGameIdLocal === r.id) closeGameUI();
+  });
 }
 
-/* open game UI */
 function openGameUI(gid, initialObj){
   if (!gid) return;
-  try { if (currentGameIdLocal) gamesRef.child(currentGameIdLocal).off(); } catch(e){}
+  try { if (currentGameIdLocal) gamesRef.child(currentGameIdLocal).off('value'); } catch(e){}
   currentGameIdLocal = gid;
   gameLocalState = initialObj || null;
-  const ga = el('gameArea'); if (ga) ga.style.display = 'block';
+  show(el('gameArea'));
   renderGameHeader(initialObj || {});
+  gamesRef.child(gid).off('value');
   gamesRef.child(gid).on('value', snap => {
     const g = snap.val();
     if (!g) { closeGameUI(); return; }
@@ -384,21 +334,12 @@ function openGameUI(gid, initialObj){
   });
 }
 
-/* render header */
 function renderGameHeader(game){
   const title = el('gameTitle'); if (title) title.textContent = game.type === 'shogi' ? '将棋（対戦）' : 'ゲーム';
   const controls = el('gameControls'); if (!controls) return;
   controls.innerHTML = '';
-
-  const statusBadge = document.createElement('span');
-  statusBadge.textContent = game.status || 'lobby'; statusBadge.style.marginRight='8px'; statusBadge.style.fontWeight='700';
-  controls.appendChild(statusBadge);
-
-  const hostInfo = document.createElement('span');
-  hostInfo.textContent = game.hostUid ? `主催: ${game.hostUid}` : '主催: なし';
-  hostInfo.style.marginRight='12px'; hostInfo.style.opacity='0.85';
-  controls.appendChild(hostInfo);
-
+  const statusBadge = document.createElement('span'); statusBadge.textContent = game.status || 'lobby'; statusBadge.style.marginRight='8px'; statusBadge.style.fontWeight='700'; controls.appendChild(statusBadge);
+  const hostInfo = document.createElement('span'); hostInfo.textContent = game.hostUid ? `主催: ${game.hostUid}` : '主催: なし'; hostInfo.style.marginRight='12px'; hostInfo.style.opacity='0.85'; controls.appendChild(hostInfo);
   if (auth?.currentUser) {
     if (game.status === 'lobby') {
       const joinBtn = document.createElement('button'); joinBtn.textContent = '参加希望'; joinBtn.onclick = ()=> requestJoinGame(game.id); controls.appendChild(joinBtn);
@@ -415,15 +356,13 @@ function renderGameHeader(game){
   }
 }
 
-/* join */
 async function requestJoinGame(gid){
   if (!auth.currentUser) return alert('ログインしてください');
   const u = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || 'ユーザー', accepted:false, ts: now() };
-  try { await gamesRef.child(gid).child('players').child(u.uid).set(u); alert('参加希望を出しました。主催者が選出するまでお待ちください。'); }
-  catch(e){ console.error('requestJoin failed', e); alert('参加申請に失敗しました'); }
+  try { await gamesRef.child(gid).child('players').child(u.uid).set(u); alert('参加希望を送りました'); }
+  catch(e){ console.error('requestJoin failed', e); alert('参加申請失敗'); }
 }
 
-/* pick and start */
 async function pickAndStartGame(gid){
   try {
     const snap = await gamesRef.child(gid).child('players').once('value');
@@ -439,23 +378,19 @@ async function pickAndStartGame(gid){
     updates['activePlayers'] = { [auth.currentUser.uid]: true, [pick.uid]: true };
     await gamesRef.child(gid).update(updates);
     await gamesRef.child(gid).child('shogi').set({ board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] });
-  } catch(e){ console.error('pickAndStartGame error', e); alert('開始処理でエラーが発生しました'); }
+  } catch(e){ console.error('pickAndStartGame error', e); alert('開始処理でエラー'); }
 }
 
-/* render game state */
 function renderGameState(game){
   if (!game) return;
   if (game.type === 'shogi') {
     const shogi = game.shogi || {};
     renderShogiBoard(game.id, shogi);
     const info = el('gameInfo');
-    if (auth?.currentUser && info) {
-      info.textContent = (shogi.turn === auth.currentUser.uid) ? "あなたの番です" : "相手の番です";
-    }
+    if (auth?.currentUser && info) info.textContent = (shogi.turn === auth.currentUser.uid) ? "あなたの番です" : "相手の番です";
   }
 }
 
-/* simple move calc (pawn only) */
 function calcMoves(piece, r, c, board){
   const moves = [];
   if (!piece) return moves;
@@ -467,7 +402,6 @@ function calcMoves(piece, r, c, board){
   return moves;
 }
 
-/* render board */
 function renderShogiBoard(gid, shogiState){
   const container = el('shogiContainer');
   if (!container) return;
@@ -475,7 +409,6 @@ function renderShogiBoard(gid, shogiState){
   const board = shogiState?.board || initialShogiBoard();
   gameLocalState = gameLocalState || {};
   gameLocalState.shogi = shogiState || gameLocalState.shogi;
-
   const grid = document.createElement('div'); grid.className = 'grid';
   for (let r=0;r<9;r++){
     for (let c=0;c<9;c++){
@@ -487,7 +420,6 @@ function renderShogiBoard(gid, shogiState){
         img.alt = piece;
         img.src = `assets/koma/${pieceImages[piece] || 'pawn.png'}`;
         if (piece === piece.toLowerCase()) img.classList.add('koma-gote');
-
         img.addEventListener('click', (ev)=>{
           ev.stopPropagation();
           const user = auth.currentUser;
@@ -497,15 +429,13 @@ function renderShogiBoard(gid, shogiState){
           clearHighlights();
           selectedPiece = { r, c, piece };
           const moves = calcMoves(piece, r, c, board);
-          moves.forEach(m=>{
+          moves.forEach(m => {
             const target = grid.querySelector(`.grid-cell[data-r="${m.r}"][data-c="${m.c}"]`);
             if (target) target.classList.add('highlight');
           });
         });
-
         sq.appendChild(img);
       }
-
       sq.addEventListener('click', ()=>{
         if (!selectedPiece) return;
         const from = { r: selectedPiece.r, c: selectedPiece.c };
@@ -516,14 +446,16 @@ function renderShogiBoard(gid, shogiState){
         makeShogiMove(gid, auth.currentUser.uid, from, to);
         selectedPiece = null; clearHighlights();
       });
-
       grid.appendChild(sq);
     }
   }
   container.appendChild(grid);
 }
 
-/* make move */
+function clearHighlights(){
+  document.querySelectorAll('.highlight').forEach(e => e.classList.remove('highlight'));
+}
+
 function makeShogiMove(gid, uid, from, to){
   if (!gid || !gamesRef) return;
   const shogiRef = gamesRef.child(gid).child('shogi');
@@ -550,10 +482,9 @@ function makeShogiMove(gid, uid, from, to){
     const other = active.find(id=>id!==uid) || uid;
     current.turn = other;
     return current;
-  }, (err)=> { if (err) console.error('makeShogiMove transaction error', err); });
+  }, (err)=>{ if (err) console.error('makeShogiMove transaction error', err); });
 }
 
-/* endGame */
 async function endGame(gid, winnerUid){
   if (!gid) return;
   try {
@@ -562,20 +493,13 @@ async function endGame(gid, winnerUid){
   } catch(e){ console.error('endGame error', e); }
 }
 
-/* close UI */
-function closeGameUI(){
-  try { if (currentGameIdLocal) gamesRef.child(currentGameIdLocal).off(); } catch(e){}
-  currentGameIdLocal = null; gameLocalState = null;
-  if (el('gameArea')) el('gameArea').style.display = 'none';
-}
+function closeGameUI(){ try { if (currentGameIdLocal) gamesRef.child(currentGameIdLocal).off(); } catch(e){} currentGameIdLocal = null; gameLocalState = null; hide(el('gameArea')); }
 
-/* init helpers */
-function init(){
-  try { initGameListSubscribe(); } catch(e){ console.error('initGameListSubscribe failed', e); }
-}
+/* ---------- 自動購読（初期化時） ---------- */
 function initGameListSubscribe(){
   const listEl = el('gamesList');
   if (!listEl) return;
+  gamesRef.off('value');
   gamesRef.on('value', snap=>{
     try {
       listEl.innerHTML = '';
@@ -590,4 +514,6 @@ function initGameListSubscribe(){
     } catch(e){ console.error('render games list failed', e); }
   });
 }
-init();
+
+/* ---------- 補助関数 ---------- */
+function safeAdd(id, ev, fn){ const e = el(id); if (e) e.addEventListener(ev, fn); }
