@@ -631,8 +631,9 @@ async function renderShogiBoard(gid, shogiState){
       const piece = board[r][c];
       if (piece && piece !== '.') {
         const img = document.createElement('img'); img.alt = piece;
-        // 仮の駒画像（必要なら差し替え）
-        img.src = '/assets/koma/pawn.png';
+        // 駒コードに応じて画像を切り替え
+        const filename = pieceImages[piece] || 'pawn.png';
+        img.src = `assets/koma/${filename}`;
         const isSente = piece === piece.toUpperCase();
         if (!isSente) img.classList.add('koma-gote'); else img.classList.remove('koma-gote');
         sq.appendChild(img);
