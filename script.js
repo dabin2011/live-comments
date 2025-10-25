@@ -3,9 +3,9 @@
 
 // ====== Firebase 設定を置き換えてください ======
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -28,7 +28,7 @@ const gamesRef = db.ref('games');
 const usersRef = db.ref('users');
 
 // Apps Script Web アプリ URL (画像アップロード)
-const GAS_URL = "https://script.google.com/macros/s/AKfycbXXXXXXXXXXXXXXXXXXXX/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
 
 // Constants
 const THREE_HOURS = 3 * 60 * 60 * 1000;
