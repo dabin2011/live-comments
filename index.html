@@ -3,170 +3,145 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>コメント・アンケート・通話・将棋</title>
+  <title>配信 + コメント + 将棋</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Firebase SDKs must be included separately (not included here) -->
 </head>
 <body>
-  <div id="authButtons">
-    <button id="loginBtn" onclick="openModal('loginModal')">ログイン</button>
-    <button id="mypageBtn" onclick="openModal('mypageModal')" style="display:none;">マイページ</button>
-    <button id="logoutBtn" style="display:none;">ログアウト</button>
-  </div>
-
-  <!-- Login modal -->
-  <div id="loginModal" class="modal" aria-hidden="true">
-    <div class="modal-content small">
-      <button class="close" data-close="loginModal">&times;</button>
-      <h2>ログイン</h2>
-      <input type="email" id="email" placeholder="メールアドレス" />
-      <input type="password" id="password" placeholder="パスワード" />
-      <div style="margin-top:8px;">
-        <button id="signupBtn">新規登録</button>
-        <button id="signinBtn">ログイン</button>
-      </div>
+  <header class="topbar">
+    <div class="left">
+      <button id="loginBtn">ログイン</button>
+      <button id="mypageBtn" style="display:none">マイページ</button>
+      <button id="logoutBtn" style="display:none">ログアウト</button>
     </div>
-  </div>
+    <div class="center">
+      <strong id="gameTitle">配信ページ</strong>
+    </div>
+    <div class="right">
+      <span id="username"></span>
+      <img id="avatar" alt="" class="small-avatar" />
+      <span id="myPoints" class="points"></span>
+    </div>
+  </header>
 
-  <!-- My page modal (アバター・資産アップロード) -->
-  <div id="mypageModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <button class="close" data-close="mypageModal">&times;</button>
-      <h2>マイページ</h2>
-      <p>ようこそ、<span id="username"></span> さん</p>
-      <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
-        <img id="avatar" src="" alt="avatar" width="96" height="96" style="border-radius:50%;object-fit:cover" />
-        <div>
-          <input type="text" id="newName" placeholder="新しいユーザー名" />
-          <div style="margin-top:8px;">
-            <button id="updateNameBtn">ユーザー名を更新</button>
-          </div>
-        </div>
+  <main class="container">
+    <section class="leftColumn">
+      <div id="arrivalBanner" class="arrivalBanner"></div>
+
+      <!-- Poll area -->
+      <div id="pollArea" class="poll-area" style="display:none">
+        <div id="pollContent" class="poll-content"></div>
+        <div id="pollTimer" class="poll-timer" aria-hidden="true"></div>
       </div>
 
-      <h3>駒・盤のカスタム画像 (任意)</h3>
-      <div>
-        <label>駒画像（単一駒画像 or 個別）: <input type="file" id="pieceImageFile" accept="image/*" /></label>
-        <button id="uploadPieceBtn">駒画像アップロード</button>
+      <!-- Comments list -->
+      <div id="commentsContainer" class="commentsContainer">
+        <div id="comments" class="comments" aria-live="polite"></div>
       </div>
-      <div style="margin-top:8px;">
-        <label>盤画像: <input type="file" id="boardImageFile" accept="image/*" /></label>
-        <button id="uploadBoardBtn">盤画像アップロード</button>
-      </div>
-      <div id="assetPreview" style="margin-top:8px;"></div>
 
-      <form id="uploadForm" enctype="multipart/form-data" style="margin-top:12px;display:none;">
-        <input type="file" id="imageFile" name="imageFile" accept="image/*" />
-        <button type="submit">画像アップロード</button>
+      <!-- Comment form -->
+      <form id="form" class="commentForm" onsubmit="event.preventDefault(); sendComment();">
+        <input id="commentInput" type="text" placeholder="コメントを入力..." autocomplete="off" />
+        <button id="sendBtn" type="button">送信</button>
       </form>
+    </section>
 
-      <div style="margin-top:12px;">保有ポイント: <strong id="myPoints">0</strong>pt</div>
-    </div>
-  </div>
+    <aside class="rightColumn">
+      <div class="controls">
+        <div class="gameControlsTop">
+          <button id="pollBtn">アンケート作成</button>
+          <button id="gameBtn">ゲーム</button>
+          <button id="uploadPieceBtn">駒画像アップ</button>
+          <button id="uploadBoardBtn">盤画像アップ</button>
+        </div>
 
-  <h2>コメント欄（3時間以内）</h2>
+        <div id="gameArea" class="gameArea" style="display:none">
+          <div class="game-header">
+            <div id="gameControls"></div>
+            <div id="gameInfo"></div>
+          </div>
+          <div id="shogiContainer" class="shogiContainer"></div>
+        </div>
 
-  <div id="commentsContainer">
-    <div id="arrivalBanner" aria-live="polite"></div>
-
-    <div id="pollArea" class="poll-area" style="display:none;">
-      <div id="pollContent" class="poll-content"></div>
-      <div id="pollTimer" class="poll-timer" style="text-align:right;color:#666;margin-top:6px;"></div>
-    </div>
-
-    <div id="gameArea" style="display:none;">
-      <div id="gameHeader" class="game-header">
-        <div id="gameTitle">ゲーム</div>
-        <div id="gameControls"></div>
+        <div id="assetPreview" class="assetPreview"></div>
       </div>
-      <div id="gameContent" class="game-content">
-        <div id="shogiContainer" style="display:none;"></div>
-        <div id="spectatorArea" style="display:none;">観戦エリア</div>
-      </div>
-    </div>
+    </aside>
+  </main>
 
-    <div id="comments" aria-live="polite"></div>
-
-    <div id="form" style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-      <input type="text" id="commentInput" placeholder="コメントを入力" />
-      <button id="gameBtn">ゲーム</button>
-      <button id="pollBtn">アンケート</button>
-      <button id="sendBtn">送信</button>
-    </div>
-  </div>
-
-  <!-- Poll modal -->
+  <!-- Modals -->
   <div id="pollModal" class="modal" aria-hidden="true">
     <div class="modal-content">
-      <button class="close" data-close="pollModal">&times;</button>
-      <h2>アンケートを作成</h2>
-      <input type="text" id="pollQuestion" placeholder="質問を入力" />
-      <div id="pollOptionsWrapper" style="margin-top:8px;">
-        <input type="text" class="pollOptionInput" placeholder="選択肢1" />
-        <input type="text" class="pollOptionInput" placeholder="選択肢2" />
+      <button class="close" data-close="pollModal">✕</button>
+      <h3>アンケート作成</h3>
+      <input id="pollQuestion" type="text" placeholder="質問を入力" />
+      <div id="pollOptionsWrapper" class="pollOptionsWrapper">
+        <input class="pollOptionInput" type="text" placeholder="選択肢1" />
+        <input class="pollOptionInput" type="text" placeholder="選択肢2" />
       </div>
-      <div style="margin-top:8px;">
-        <button id="addPollOptionBtn">選択肢を追加</button>
-        <button id="createPollBtn">作成して開始（30秒）</button>
+      <div class="modal-actions">
+        <button id="addPollOptionBtn" type="button">選択肢追加</button>
+        <button id="createPollBtn" type="button">作成</button>
       </div>
     </div>
   </div>
 
-  <!-- Game modal -->
   <div id="gameModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <button class="close" data-close="gameModal">&times;</button>
-      <h2>ゲームを選択</h2>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="gameChoice" data-game="shogi">将棋</button>
-      </div>
-      <div style="margin-top:12px;">
-        <label><input type="checkbox" id="publicGame" checked /> 観戦を許可する</label>
-      </div>
-      <div style="margin-top:12px;text-align:right;">
-        <button id="startGameBtn">開始</button>
+    <div class="modal-content small">
+      <button class="close" data-close="gameModal">✕</button>
+      <h3>ゲーム作成</h3>
+      <div class="gameChoice" data-game="shogi" role="button">将棋</div>
+      <label><input id="publicGame" type="checkbox" /> 観戦許可</label>
+      <div class="modal-actions"><button id="startGameBtn" type="button">開始</button></div>
+    </div>
+  </div>
+
+  <div id="loginModal" class="modal" aria-hidden="true">
+    <div class="modal-content small">
+      <button class="close" data-close="loginModal">✕</button>
+      <h3>ログイン / 新規登録</h3>
+      <input id="email" type="email" placeholder="メール" />
+      <input id="password" type="password" placeholder="パスワード" />
+      <div class="modal-actions">
+        <button id="signinBtn" type="button">ログイン</button>
+        <button id="signupBtn" type="button">登録</button>
       </div>
     </div>
   </div>
 
-  <!-- Caller popup -->
+  <div id="mypageModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" data-close="mypageModal">✕</button>
+      <h3>マイページ</h3>
+      <div id="assetPreview"></div>
+      <div style="margin-top:12px">
+        <label>新しい表示名 <input id="newName" type="text" /></label>
+        <button id="updateNameBtn" type="button">更新</button>
+      </div>
+      <form id="uploadForm" style="margin-top:12px">
+        <div>
+          <label>駒画像: <input id="pieceImageFile" type="file" accept="image/*" /></label>
+        </div>
+        <div>
+          <label>盤画像: <input id="boardImageFile" type="file" accept="image/*" /></label>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="callRequestPopup" class="modal" aria-hidden="true">
     <div class="modal-content small">
-      <button class="close" data-close="callRequestPopup">&times;</button>
+      <button class="close" data-close="callRequestPopup">✕</button>
       <div id="callRequestContent"></div>
-      <div style="margin-top:10px;text-align:right;">
-        <button id="callCancelBtn">キャンセル</button>
-        <button id="callSendBtn">通話リクエスト送信</button>
+      <div class="modal-actions">
+        <button id="callSendBtn" type="button">送信</button>
+        <button id="callCancelBtn" type="button">キャンセル</button>
       </div>
     </div>
   </div>
 
-  <!-- Incoming call popup -->
-  <div id="incomingCallPopup" class="modal" aria-hidden="true">
-    <div class="modal-content small">
-      <button class="close" data-close="incomingCallPopup">&times;</button>
-      <div id="incomingCallContent"></div>
-      <div style="margin-top:10px;text-align:right;">
-        <button id="rejectCallBtn">拒否</button>
-        <button id="acceptCallBtn">応答</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Notification popup -->
-  <div id="callNotifyPopup" class="modal" aria-hidden="true">
-    <div class="modal-content small">
-      <button class="close" data-close="callNotifyPopup">&times;</button>
-      <div id="callNotifyContent"></div>
-      <div style="margin-top:10px;text-align:right;">
-        <button id="callNotifyClose">閉じる</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <footer class="footer">
+    <small>© Example</small>
+  </footer>
 
   <script src="script.js"></script>
 </body>
