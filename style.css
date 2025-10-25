@@ -52,7 +52,7 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 .shogiBoard img{display:block;max-width:70%;max-height:70%;user-select:none;pointer-events:none}
 .shogiBoard img.koma-gote{transform:rotate(180deg);transform-origin:center center}
 
-/* modal backdrop and modal */
+/* モーダル共通 */
 .modal-backdrop{position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.45);opacity:0;pointer-events:none;visibility:hidden;transition:opacity .18s ease,visibility .18s ease;z-index:10000}
 .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.98);min-width:280px;max-width:92%;z-index:10001;display:none;opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
 .modal.open{display:block;opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
@@ -62,12 +62,17 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 .modal .close{position:absolute;top:8px;right:10px;border:none;background:transparent;font-size:18px;cursor:pointer}
 .modal input[type="text"], .modal input[type="email"], .modal input[type="password"]{display:block;width:100%;padding:8px;margin:8px 0;border:1px solid var(--border);border-radius:6px}
 .modal .modal-actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
-
 .form-error{color:#b00020;font-weight:700;margin-bottom:6px}
 
-.footer{padding:12px;text-align:center;color:var(--muted);font-size:13px}
+/* フッター */
+.footer{padding:12px;text-align:center;color:#666;font-size:13px}
 
+/* ゲーム選択 */
 .gameChoice{padding:8px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:#fff;margin-bottom:8px}
 .gameChoice[data-selected="true"]{background:var(--accent);color:#fff;border-color:rgba(0,0,0,0.08)}
+
+/* アセットプレビュー */
 .assetPreview img{max-width:100%;height:auto;border-radius:6px;border:1px solid var(--border)}
+
+/* 共通ボタン */
 .controlBtn{padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer}
