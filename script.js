@@ -1,19 +1,23 @@
 // Firebase 初期化
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
+  authDomain: "shige-live.firebaseapp.com",
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com",
+  projectId: "shige-live",
+  storageBucket: "shige-live.firebasestorage.app",
+  messagingSenderId: "135620625815",
+  appId: "1:135620625815:web:514ba3dd5cd625c144f0d2",
+  measurementId: "G-5Y7F6V9668"
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
-const gamesRef = db.ref('games');
 const commentsRef = db.ref('comments');
 const pollsRef = db.ref('polls');
+const gamesRef = db.ref('games');
+
+// Apps Script URL（プロフィール画像アップロード用）
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
 
 // ユーティリティ
 function el(id){ return document.getElementById(id); }
@@ -26,9 +30,12 @@ auth.onAuthStateChanged(user => {
     el('loginArea').style.display = 'none';
     el('userArea').style.display = 'block';
     el('username').textContent = user.displayName || user.email;
+    el('avatar').src = user.photoURL || '';
   } else {
     el('loginArea').style.display = 'block';
     el('userArea').style.display = 'none';
+    el('username').textContent = '';
+    el('avatar').src = '';
   }
 });
 
@@ -83,6 +90,28 @@ pollsRef.child('active').on('value', snap => {
     area.appendChild(btn);
   });
 });
+
+// プロフィール画像アップロード
+el('uploadProfileBtn').onclick = async () => {
+  if (!auth.currentUser) return alert('ログインしてください');
+  const file = el('profileImageFile').files[0];
+  if (!file) return alert('画像ファイルを選択してください');
+
+  const form = new FormData();
+  form.append('uid', auth.currentUser.uid);
+  form.append('file', file, file.name);
+
+  const res = await fetch(GAS_URL, { method: 'POST', body: form });
+  const data = await res.json();
+
+  if (data.url) {
+    await auth.currentUser.updateProfile({ photoURL: data.url });
+    alert('プロフィール画像を更新しました');
+    el('avatar').src = data.url;
+  } else {
+    alert('アップロードに失敗しました');
+  }
+};
 
 // 将棋ゲーム機能
 const pieceImages = {
@@ -194,40 +223,4 @@ function renderShogiBoard(gid, shogiState){
 }
 
 function makeShogiMove(gid, uid, from, to){
-  const ref = gamesRef.child(gid).child('shogi');
-  ref.transaction(current => {
-    if (!current) return;
-    const board = current.board || initialShogiBoard();
-    const piece = board[from.r][from.c];
-    if (!piece || piece === '.') return;
-
-    const target = board[to.r][to.c];
-    if (target === 'k' || target === 'K') {
-      alert(uid === auth.currentUser.uid ? "あなたの勝利" : "あなたの負け");
-    }
-
-    board[to.r][to.c] = piece;
-    board[from.r][from.c] = '.';
-    current.board = board;
-    current.turn = uid === auth.currentUser.uid ? "opponent" : auth.currentUser.uid;
-    return current;
-  });
-}
-
-el('startGameBtn').onclick = () => {
-  const gid = gamesRef.push().key;
-  gamesRef.child(gid).set({
-    id: gid,
-    type: 'shogi',
-    status: 'running',
-    hostUid: auth.currentUser.uid,
-    shogi: { board: initialShogiBoard(), turn: auth.currentUser.uid }
-  });
-  currentGameId = gid;
-  gamesRef.child(gid).on('value', snap => {
-    const g = snap.val();
-    if (g) {
-      gameLocalState = g;
-      renderGameState(g);
-    }
- 
+  const ref = gamesRef.child(gid).child('shogi
