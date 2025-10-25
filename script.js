@@ -660,7 +660,6 @@ async function renderShogiBoard(gid, shogiState){
         img.src = `assets/koma/${filename}`;
         if (piece === piece.toLowerCase()) img.classList.add('koma-gote');
 
-        //
         // 駒コードに応じて画像を切り替え
         const filename = pieceImages[piece] || 'pawn.png';
         img.src = `assets/koma/${filename}`;
