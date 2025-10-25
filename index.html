@@ -4,13 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>配信 + コメント + 将棋</title>
+
+  <!-- スタイル -->
   <link rel="stylesheet" href="style.css" />
-  <!-- 必須: Firebase SDK をここで読み込んでから script.js を読み込んでください（compat またはモジュール版）
-       例（compat）:
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <!--
+    Firebase compat SDK を必ず head 内で読み込んでください。
+    実際に動かす際は、以下の4つをコメントアウトせずに配置してください。
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   -->
 </head>
 <body>
@@ -148,6 +153,7 @@
     <small>© Example</small>
   </footer>
 
+  <!-- アプリ本体 -->
   <script src="script.js"></script>
 </body>
 </html>
