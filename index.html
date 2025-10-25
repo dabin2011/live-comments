@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>統合アプリ（コメント / アンケート / 将棋 / プロフィール）</title>
+  <title>統合アプリ（コメント / アンケート / 将棋）</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Firebase SDK（必ず先に読み込む） -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -13,8 +13,15 @@
 <body>
   <header class="topbar">
     <h1 class="brand">MyApp</h1>
+    <div id="presenceArea" class="presence">
+      <span id="visitorNote" class="visitor-note" style="display:none;"></span>
+      <span id="connCount" class="conn-count">接続: 0</span>
+    </div>
     <div id="loginArea" class="auth">
       <button id="openLoginBtn" class="btn">ログイン</button>
+      <button id="openPollEditorBtn" class="btn">アンケート</button>
+      <button id="openMyPageBtn" class="btn">マイページ</button>
+      <button id="openGameSelectBtn" class="btn">ゲーム</button>
     </div>
     <div id="userArea" class="auth" style="display:none;">
       <img id="avatar" class="avatar" src="" alt="avatar"/>
@@ -24,7 +31,7 @@
   </header>
 
   <main class="container">
-    <section class="panel">
+    <section class="panel" id="commentPanel">
       <h2>コメント</h2>
       <div id="commentControls" class="row">
         <input id="commentInput" class="input" placeholder="コメントを入力" />
@@ -34,28 +41,17 @@
     </section>
 
     <section class="panel">
-      <h2>アンケート作成</h2>
-      <div id="pollEditor">
-        <input id="pollQuestion" class="input" placeholder="質問を入力" />
-        <div id="pollOptionsContainer" class="options"></div>
-        <div class="row">
-          <button id="addPollOptionBtn" class="btn">選択肢を追加</button>
-          <button id="createPollBtn" class="btn primary">アンケート作成</button>
-        </div>
-      </div>
+      <h2>アンケート（表示）</h2>
       <div id="pollArea" class="list"></div>
     </section>
 
     <section class="panel">
       <h2>ゲーム（将棋）</h2>
       <div class="row">
-        <button id="createGameBtn" class="btn">ゲーム作成</button>
-        <button id="startGameBtn" class="btn">開始（主催のみ）</button>
+        <div id="gamesList" class="list small"></div>
       </div>
-      <div id="gamesList" class="list small"></div>
-
       <div id="gameArea" class="gamePanel" style="display:none;">
-        <div id="gameHeader" class="row">
+        <div class="row" style="justify-content:space-between">
           <h3 id="gameTitle">将棋</h3>
           <div id="gameControls"></div>
         </div>
@@ -73,7 +69,7 @@
     </section>
   </main>
 
-  <!-- ログインポップアップモーダル -->
+  <!-- ログインモーダル -->
   <div id="loginModal" class="modal" aria-hidden="true" style="display:none;">
     <div class="modal-inner">
       <h3>ログイン</h3>
@@ -85,9 +81,69 @@
         <button id="loginBtn" class="btn primary">ログイン</button>
         <button id="closeLoginBtn" class="btn">閉じる</button>
       </div>
-      <div class="muted">※アカウントは Firebase Authentication で作成してください</div>
     </div>
   </div>
+
+  <!-- アンケート作成モーダル -->
+  <div id="pollEditorModal" class="modal" style="display:none;">
+    <div class="modal-inner">
+      <h3>アンケート作成</h3>
+      <input id="pollQuestion" class="input" placeholder="質問を入力" />
+      <div id="pollOptionsContainer" class="options"></div>
+      <div class="row">
+        <button id="addPollOptionBtn" class="btn">選択肢を追加</button>
+        <button id="createPollBtn" class="btn primary">作成して配信</button>
+        <button id="closePollEditorBtn" class="btn">閉じる</button>
+      </div>
+      <div class="muted">作成すると全員に30秒のアンケートが配信されます</div>
+    </div>
+  </div>
+
+  <!-- マイページモーダル -->
+  <div id="myPageModal" class="modal" style="display:none;">
+    <div class="modal-inner">
+      <h3>マイページ</h3>
+      <div class="row">
+        <img id="myAvatarLarge" src="" class="avatar" style="width:72px;height:72px"/>
+        <div>
+          <div id="myName"></div>
+          <div class="muted">プロフィール編集は限定機能</div>
+        </div>
+      </div>
+      <div class="row">
+        <input id="myBio" class="input" placeholder="ひとこと" />
+      </div>
+      <div class="row">
+        <button id="saveMyPageBtn" class="btn primary">保存</button>
+        <button id="closeMyPageBtn" class="btn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ゲーム選択モーダル -->
+  <div id="gameSelectModal" class="modal" style="display:none;">
+    <div class="modal-inner">
+      <h3>ゲーム選択</h3>
+      <div class="row">
+        <button id="createShogiBtn" class="btn primary">将棋を作成</button>
+        <button id="closeGameSelectBtn" class="btn">閉じる</button>
+      </div>
+      <div class="muted">作成するとコメント一覧が下にスライドしてゲーム画面が表示されます</div>
+    </div>
+  </div>
+
+  <!-- アンケートポップ（全員に表示される） -->
+  <div id="pollPopup" class="poll-popup" style="display:none;">
+    <div class="poll-inner">
+      <h3 id="pollPopupQuestion"></h3>
+      <div id="pollPopupOptions"></div>
+      <div id="pollTimer" class="muted"></div>
+      <div id="pollResult" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- 来訪通知 -->
+  <div id="visitNotice" class="visit-notice" style="display:none;"></div>
 
   <footer class="footer">
     <small>© MyApp</small>
