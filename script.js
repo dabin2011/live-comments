@@ -7,10 +7,10 @@ const firebaseConfig = {
   apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "shige-live.firebaseapp.com",
   databaseURL: "https://shige-live-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
+  projectId: "shige-live",
   storageBucket: "shige-live.firebasestorage.app",
   messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  appId: "1:135620625815:web:514ba3dd5cd625c144f0d2"
 };
 
 // Apps Script の公開 Web アプリ URL（必要なら使います）
