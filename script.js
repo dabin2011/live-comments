@@ -1,11 +1,11 @@
-// script.js — コメント・アンケート・ゲーム（将棋）統合版（駒画像表示・後手は回転で表現）
+// script.js — コメント・アンケート・将棋（画像駒・後手は回転で表現）
 // 必ず firebaseConfig と GAS_URL を実環境の値に置き換えてください。
 
 // ====== Firebase 設定を置き換えてください ======
 const firebaseConfig = {
-  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
+  apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -18,7 +18,6 @@ if (typeof firebase === 'undefined') {
   firebase.initializeApp(firebaseConfig);
 }
 
-// Refs
 const auth = firebase.auth();
 const db = firebase.database();
 const commentsRef = db.ref('comments');
@@ -29,7 +28,7 @@ const gamesRef = db.ref('games');
 const usersRef = db.ref('users');
 
 // Apps Script Web アプリ URL (画像アップロード)
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbXXXXXXXXXXXXXXXXXXXX/exec";
 
 // Constants
 const THREE_HOURS = 3 * 60 * 60 * 1000;
@@ -72,18 +71,18 @@ window.closeModal = function (id) {
   m.style.display = 'none';
 };
 
-// Default piece image map (プロジェクトに配置した画像パスを指定してください)
+// Default piece image map (1枚で先後共有する前提)
 const PIECE_IMG_MAP = {
-  'P': '/assets/koma/pawn_sente.png', 'p': '/assets/koma/pawn_sente.png',
-  'L': '/assets/koma/lance_sente.png', 'l': '/assets/koma/lance_sente.png',
-  'N': '/assets/koma/knight_sente.png','n':'/assets/koma/knight_sente.png',
-  'S': '/assets/koma/silver_sente.png','s':'/assets/koma/silver_sente.png',
-  'G': '/assets/koma/gold_sente.png','g':'/assets/koma/gold_sente.png',
-  'K': '/assets/koma/king_sente.png','k':'/assets/koma/king_sente.png',
-  'B': '/assets/koma/bishop_sente.png','b':'/assets/koma/bishop_sente.png',
-  'R': '/assets/koma/rook_sente.png','r':'/assets/koma/rook_sente.png',
-  '+P':'/assets/koma/pawn_promoted_sente.png', '+p':'/assets/koma/pawn_promoted_sente.png',
-  '+R':'/assets/koma/rook_promoted_sente.png','+r':'/assets/koma/rook_promoted_sente.png'
+  'P': '/assets/koma/pawn.png', 'p': '/assets/koma/pawn.png',
+  'L': '/assets/koma/lance.png', 'l': '/assets/koma/lance.png',
+  'N': '/assets/koma/knight.png','n':'/assets/koma/knight.png',
+  'S': '/assets/koma/silver.png','s':'/assets/koma/silver.png',
+  'G': '/assets/koma/gold.png','g':'/assets/koma/gold.png',
+  'K': '/assets/koma/king.png','k':'/assets/koma/king.png',
+  'B': '/assets/koma/bishop.png','b':'/assets/koma/bishop.png',
+  'R': '/assets/koma/rook.png','r':'/assets/koma/rook.png',
+  '+P':'/assets/koma/pawn_promoted.png', '+p':'/assets/koma/pawn_promoted.png',
+  '+R':'/assets/koma/rook_promoted.png','+r':'/assets/koma/rook_promoted.png'
 };
 
 // resolve piece image URL: game assets -> user assets -> default map
@@ -143,16 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // asset upload buttons
   safeAdd('uploadPieceBtn','click', uploadPieceImage);
   safeAdd('uploadBoardBtn','click', uploadBoardImage);
-
-  const commentsEl = el('comments');
-  if (commentsEl) {
-    commentsEl.addEventListener('click', ev => {
-      const badge = ev.target.closest('.call-badge');
-      if (badge) { const uid = badge.getAttribute('data-uid'); if (uid) openCallRequestPopup(uid); }
-      const img = ev.target.closest('img[data-uid]');
-      if (img) { const uid = img.getAttribute('data-uid'); if (uid) openCallRequestPopup(uid); }
-    });
-  }
 
   arrivalsRef.on('child_added', snap => {
     const d = snap.val();
@@ -352,8 +341,9 @@ function voteOption(optId) {
 async function finalizePoll() {
   const activeRef = pollsRef.child('active');
   try { const snap = await activeRef.once('value'); const poll = snap.val(); if (!poll) return; if (poll.state === 'finished') return; await activeRef.update({ state: 'finished', finishedAt: now() }); await pollsRef.child('history').push(poll).catch(() => {}); if (_pollTimers.has('active')) { clearInterval(_pollTimers.get('active')); _pollTimers.delete('active'); } } catch (err) { console.error('finalizePoll error', err); }
-
+  
 // Calls placeholders
+}
 function openCallRequestPopup(uid) { const content = el('callRequestContent'); if (content) content.innerHTML = `<div>ユーザー <strong>${escapeHtml(uid)}</strong> に通話リクエストを送りますか？</div>`; window._callTargetUid = uid; openModal('callRequestPopup'); }
 function sendCallRequestFromPopup() { /* implement signaling */ }
 function listenIncomingCalls(myUid) { /* implement if needed */ }
@@ -492,7 +482,6 @@ async function renderShogiBoard(gid, shogiState) {
   const container = el('shogiContainer'); if (!container) return;
   container.innerHTML = '';
 
-  // board background (game assets -> user assets -> default background color)
   let boardUrl = null;
   try { if (gameLocalState && gameLocalState.assets && gameLocalState.assets.boardUrl) boardUrl = gameLocalState.assets.boardUrl; } catch (e) {}
   const boardWrap = document.createElement('div'); boardWrap.className = 'shogiBoard';
@@ -533,7 +522,6 @@ async function renderShogiBoard(gid, shogiState) {
         sq.appendChild(img);
       }
 
-      // click handler (選択・移動)
       sq.addEventListener('click', async () => {
         const myUid = auth.currentUser?.uid;
         const game = gameLocalState;
@@ -560,7 +548,6 @@ async function renderShogiBoard(gid, shogiState) {
   boardWrap.appendChild(grid);
   container.appendChild(boardWrap);
 
-  // controls
   const controls = document.createElement('div'); controls.className = 'shogiControls';
   const playersDiv = document.createElement('div');
   const players = gameLocalState.players || {};
@@ -622,6 +609,11 @@ function initGameAutoSubscribe() {
   gamesRef.orderByChild('status').equalTo('running').on('child_added', snap => { const g = snap.val(); if (!g) return; openGameUI(g.id, g); });
   gamesRef.on('child_changed', snap => { const g = snap.val(); if (!g) return; if (currentGameId === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); } });
   gamesRef.on('child_removed', snap => { const removed = snap.val(); if (!removed) return; if (currentGameId === removed.id) closeGameUI(); });
+}
+
+// renderGameState wrapper
+function renderGameState(game) {
+  if (game.type === 'shogi') renderShogiBoard(game.id, game.shogi || game.shogiState || {});
 }
 
 // Debug
