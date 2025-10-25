@@ -8,15 +8,11 @@
   <!-- スタイル -->
   <link rel="stylesheet" href="style.css" />
 
-  <!--
-    Firebase compat SDK を必ず head 内で読み込んでください。
-    実際に動かす際は、以下の4つをコメントアウトせずに配置してください。
-
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-  -->
+  <!-- Firebase SDK (compat 版) を必ずこの順番で読み込む -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -48,7 +44,7 @@
         <div id="comments" class="comments" aria-live="polite"></div>
       </div>
 
-      <form id="form" class="commentForm" onsubmit="event.preventDefault(); sendComment();">
+      <form id="form" class="commentForm" onsubmit="event.preventDefault();">
         <input id="commentInput" type="text" placeholder="コメントを入力..." autocomplete="off" />
         <button id="sendBtn" type="button">送信</button>
       </form>
@@ -76,6 +72,7 @@
 
   <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true"></div>
 
+  <!-- アンケート作成 -->
   <div id="pollModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="pollModal">
     <div class="modal-content">
       <button class="close" data-close="pollModal" aria-label="閉じる">✕</button>
@@ -92,6 +89,7 @@
     </div>
   </div>
 
+  <!-- ゲーム作成 -->
   <div id="gameModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="gameModal">
     <div class="modal-content small">
       <button class="close" data-close="gameModal" aria-label="閉じる">✕</button>
@@ -102,6 +100,7 @@
     </div>
   </div>
 
+  <!-- ログイン/新規登録 -->
   <div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="loginModal">
     <div class="modal-content small">
       <button class="close" data-close="loginModal" aria-label="閉じる">✕</button>
@@ -116,6 +115,7 @@
     </div>
   </div>
 
+  <!-- マイページ -->
   <div id="mypageModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="mypageModal">
     <div class="modal-content">
       <button class="close" data-close="mypageModal" aria-label="閉じる">✕</button>
@@ -127,7 +127,7 @@
         <button id="updateNameBtn" type="button">更新</button>
       </div>
 
-      <form id="profileUploadForm" style="margin-top:12px" onsubmit="event.preventDefault(); uploadProfileImage();">
+      <form id="profileUploadForm" style="margin-top:12px" onsubmit="event.preventDefault();">
         <div>
           <label>プロフィール画像: <input id="profileImageFile" type="file" accept="image/*" /></label>
         </div>
@@ -138,6 +138,7 @@
     </div>
   </div>
 
+  <!-- 通話リクエスト（ダイアログのみ保持） -->
   <div id="callRequestPopup" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="callRequestPopup">
     <div class="modal-content small">
       <button class="close" data-close="callRequestPopup" aria-label="閉じる">✕</button>
