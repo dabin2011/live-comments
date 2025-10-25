@@ -53,10 +53,12 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 /* 後手駒回転 */
 .shogiBoard img.koma-gote{transform:rotate(180deg);transform-origin:center center}
 
-/* modals */
-.modal{display:none;position:fixed;z-index:200000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center}
-.modal.open{display:flex!important}
-.modal .modal-content{background:var(--card);padding:16px;border-radius:8px;max-width:640px;width:92%;position:relative}
+/* modal backdrop and modal */
+.modal-backdrop{position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.45);opacity:0;pointer-events:none;visibility:hidden;transition:opacity .18s ease,visibility .18s ease}
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.98);min-width:280px;max-width:92%;z-index:10001;display:none;opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
+.modal.open{display:block;opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.modal.open ~ .modal-backdrop{opacity:1;pointer-events:auto;visibility:visible}
+.modal .modal-content{background:var(--card);padding:16px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.18)}
 .modal .modal-content.small{max-width:420px}
 .modal .close{position:absolute;top:8px;right:10px;border:none;background:transparent;font-size:18px;cursor:pointer}
 .modal input[type="text"], .modal input[type="email"], .modal input[type="password"]{display:block;width:100%;padding:8px;margin:8px 0;border:1px solid var(--border);border-radius:6px}
@@ -64,7 +66,6 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 
 .footer{padding:12px;text-align:center;color:var(--muted);font-size:13px}
 
-/* small helpers */
 .gameChoice{padding:8px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:#fff;margin-bottom:8px}
 .gameChoice[data-selected="true"]{background:var(--accent);color:#fff;border-color:rgba(0,0,0,0.08)}
 .assetPreview img{max-width:100%;height:auto;border-radius:6px;border:1px solid var(--border)}
