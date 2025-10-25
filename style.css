@@ -63,6 +63,8 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 .modal input[type="text"], .modal input[type="email"], .modal input[type="password"]{display:block;width:100%;padding:8px;margin:8px 0;border:1px solid var(--border);border-radius:6px}
 .modal .modal-actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
 
+.form-error{color:#b00020;font-weight:700;margin-bottom:6px}
+
 .footer{padding:12px;text-align:center;color:var(--muted);font-size:13px}
 
 .gameChoice{padding:8px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:#fff;margin-bottom:8px}
