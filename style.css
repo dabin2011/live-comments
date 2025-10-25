@@ -1,75 +1,70 @@
 :root{
-  --max-height:520px;
-  --gap:10px;
-  --accent:#fff;
-  --border:#ccc;
-  --muted:#888;
-  --btn-height:44px;
-  --btn-radius:22px;
-  --font-size:14px;
-  --arrival-bg:#ff4b4b;
-  --poll-bg:#fff6e6;
-  --poll-accent:#1a73e8;
-  --presence-size:10px;
-  --presence-offset:4px
+  --bg:#f7f7f8;
+  --card:#fff;
+  --muted:#777;
+  --accent:#1a73e8;
+  --border:#e6e6e6;
+  --gap:12px;
 }
 *{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;padding:20px;margin:0;background:#f9f9f9;color:#222}
-#authButtons{margin-bottom:12px}
-button{padding:8px 12px;margin:5px;cursor:pointer;border:1px solid var(--border);background:var(--accent);border-radius:8px;font-size:var(--font-size)}
-#arrivalBanner{display:none;width:100%;padding:10px;border-radius:8px;margin-bottom:10px;background:var(--arrival-bg);color:#fff;font-weight:600;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
-#commentsContainer{border:1px solid var(--border);background:var(--accent);padding:10px;max-height:var(--max-height);display:flex;flex-direction:column;overflow:hidden}
-.poll-area{width:100%;margin-bottom:10px;transition:opacity 400ms ease,transform 400ms ease;opacity:1}
-.poll-content{background:var(--poll-bg);border-radius:8px;padding:10px;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:8px;position:relative}
-.poll-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.poll-question{font-weight:700;font-size:16px}
-.poll-options{display:flex;flex-direction:column;gap:8px}
-.poll-option{display:flex;align-items:center;gap:8px;padding:10px;border-radius:10px;background:#fff;cursor:pointer;border:1px solid #eee}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,Arial;background:var(--bg);color:#222}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+.topbar .left,.topbar .center,.topbar .right{display:flex;align-items:center;gap:8px}
+.small-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover}
+.container{display:flex;gap:16px;padding:16px;max-width:1200px;margin:18px auto}
+.leftColumn{flex:1;min-width:320px}
+.rightColumn{width:420px}
+.arrivalBanner{display:none;padding:10px;border-radius:6px;background:#ff6b6b;color:#fff;margin-bottom:10px;font-weight:700;text-align:center}
+.poll-area{margin-bottom:12px}
+.poll-content{background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)}
+.poll-header{display:flex;align-items:center;justify-content:space-between}
+.poll-question{font-weight:700}
+.poll-options{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.poll-option{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:#fff;border:1px solid #f0f0f0;cursor:pointer}
 .poll-option .bar{height:10px;background:#eee;border-radius:6px;flex:1;position:relative;overflow:hidden}
-.poll-option .bar > i{position:absolute;left:0;top:0;bottom:0;background:var(--poll-accent);width:0%;transition:width 400ms ease}
-.poll-option .percent{min-width:44px;text-align:right;font-weight:700}
-#comments{display:flex;flex-direction:column;gap:var(--gap);flex-grow:1;overflow-y:auto;padding-right:6px;scroll-behavior:smooth}
-.comment{display:flex;gap:10px;align-items:center;padding:8px;border-bottom:1px solid #eee;background:var(--accent);transition:transform 300ms ease,opacity 300ms ease;position:relative}
-.comment img.avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;cursor:pointer;position:relative}
-.comment .avatarWrap{position:relative;display:inline-block}
-.presence-dot{position:absolute;right:calc(-1 * var(--presence-offset));bottom:calc(-1 * var(--presence-offset));width:var(--presence-size);height:var(--presence-size);border-radius:50%;border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,0.12);background:#ccc}
+.poll-option .bar > i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);width:0%;transition:width 400ms}
+.poll-option .percent{min-width:44px;text-align:right;font-weight:700;color:var(--muted)}
+
+.commentsContainer{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;max-height:520px;overflow:hidden}
+#comments{display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-right:6px;max-height:440px}
+.comment{display:flex;gap:10px;align-items:flex-start;padding:8px;border-bottom:1px solid #f4f4f4}
+.comment .avatar{width:40px;height:40px;border-radius:50%;object-fit:cover}
+.avatarWrap{position:relative}
+.presence-dot{position:absolute;right:-6px;bottom:-6px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:#ccc;box-shadow:0 1px 2px rgba(0,0,0,0.12)}
 .presence-online{background:#3ddc84}
 .presence-offline{background:#ccc}
-.comment .meta{display:flex;flex-direction:column;gap:4px;flex:1 1 auto}
-.comment small{color:var(--muted);font-size:0.85em}
-.comment .call-badge{margin-left:8px;padding:6px 8px;border-radius:12px;background:#eaf6ff;color:#1a73e8;font-weight:700;border:1px solid #cce4ff;cursor:pointer}
-#form{margin-top:8px;display:flex;gap:8px;align-items:center}
-#form input[type="text"]{flex:1 1 auto;min-width:0;height:var(--btn-height);padding:8px 14px;border-radius:var(--btn-radius);border:1px solid var(--border);outline:none;background:#fff;font-size:var(--font-size)}
-#form button{height:var(--btn-height);padding:0 16px;border-radius:var(--btn-radius);display:inline-flex;align-items:center;justify-content:center;border:1px solid #bbb;background:#fff;cursor:pointer}
-.modal{display:none;position:fixed;z-index:200000;left:0;top:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5);align-items:center;justify-content:center}
-.modal.open{display:flex !important}
-.modal .modal-content{background:#fff;padding:20px;border-radius:8px;max-width:520px;width:92%;position:relative;z-index:1000000}
-.modal .modal-content.small{max-width:380px}
-.modal .close{position:absolute;top:10px;right:12px;border:none;background:transparent;font-size:20px;cursor:pointer}
-.presence-dot.small{width:8px;height:8px;border-width:1px}
+.comment .meta{flex:1}
+.call-badge{margin-left:8px;padding:6px 8px;border-radius:12px;background:#eaf6ff;color:var(--accent);font-weight:700;border:1px solid #cfe9ff;cursor:pointer}
 
-/* Game UI */
-#gameBtn{height:44px;padding:0 12px;border-radius:12px;background:#ffd966;border:1px solid #e6c75a}
-#gameArea{transition:transform 300ms ease,opacity 300ms ease;margin-top:12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.game-header{display:flex;justify-content:space-between;align-items:center;padding:8px;background:#fff;border-bottom:1px solid #eee}
-#gameTitle{font-weight:700}
-.gameChoice{padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer}
-.gameChoice[data-selected="true"]{background:#1a73e8;color:#fff;border-color:#1669d6}
-#shogiContainer{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:8px}
-.shogiBoard{width:360px;height:360px;background:#f6e7c1;border-radius:6px;padding:8px;box-sizing:border-box;display:flex;flex-direction:column;}
-.shogiBoard .grid{flex:1 1 auto;}
-.shogiBoard .grid > div{display:flex;align-items:center;justify-content:center}
+.commentForm{display:flex;gap:8px;margin-top:10px}
+.commentForm input[type="text"]{flex:1;padding:10px;border-radius:22px;border:1px solid var(--border);background:#fff}
+.commentForm button{padding:8px 14px;border-radius:22px;border:1px solid var(--border);background:#fff;cursor:pointer}
 
-/* マス */
-.shogiBoard .grid-cell{border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;background:transparent;cursor:pointer}
+.controls{background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)}
+.gameArea{margin-top:12px;border-radius:8px;border:1px solid var(--border);background:var(--card)}
+.game-header{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f4f4f4}
+#shogiContainer{padding:12px;display:flex;gap:12px;align-items:flex-start;min-height:360px}
 
-/* 駒画像（共通） */
-.shogiBoard img { display:block; max-width:70%; max-height:70%; user-select:none; pointer-events:none; }
+/* 将棋盤 */
+.shogiBoard{width:360px;height:360px;background:#f5e7c4;border-radius:6px;padding:8px;box-sizing:border-box;display:flex;flex-direction:column}
+.grid{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;flex:1}
+.grid-cell{display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,0.06);min-height:34px;background:transparent;cursor:pointer}
+.shogiBoard img{display:block;max-width:70%;max-height:70%;user-select:none;pointer-events:none}
+/* 後手駒回転 */
+.shogiBoard img.koma-gote{transform:rotate(180deg);transform-origin:center center}
 
-/* 後手駒は回転して向きを逆にする */
-.shogiBoard img.koma-gote { transform: rotate(180deg); transform-origin: center center; }
+/* modals */
+.modal{display:none;position:fixed;z-index:200000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center}
+.modal.open{display:flex!important}
+.modal .modal-content{background:var(--card);padding:16px;border-radius:8px;max-width:640px;width:92%;position:relative}
+.modal .modal-content.small{max-width:420px}
+.modal .close{position:absolute;top:8px;right:10px;border:none;background:transparent;font-size:18px;cursor:pointer}
+.modal input[type="text"], .modal input[type="email"], .modal input[type="password"]{display:block;width:100%;padding:8px;margin:8px 0;border:1px solid var(--border);border-radius:6px}
+.modal .modal-actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
 
-/* コントロール */
-.shogiControls{display:flex;flex-direction:column;gap:8px;margin-left:12px}
-.playerBadge{padding:6px 8px;border-radius:12px;background:#fff;border:1px solid #ddd;font-weight:700}
-.call-controls{display:flex;gap:8px;align-items:center}
+.footer{padding:12px;text-align:center;color:var(--muted);font-size:13px}
+
+/* small helpers */
+.gameChoice{padding:8px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:#fff;margin-bottom:8px}
+.gameChoice[data-selected="true"]{background:var(--accent);color:#fff;border-color:rgba(0,0,0,0.08)}
+.assetPreview img{max-width:100%;height:auto;border-radius:6px;border:1px solid var(--border)}
