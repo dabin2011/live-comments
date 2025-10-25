@@ -5,10 +5,10 @@
 /* 設定（実環境の値を必ず設定） */
 const firebaseConfig = {
   apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
+  authDomain: "shige-live.firebaseapp.com",
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com",
   projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  storageBucket: "shige-live.firebasestorage.app",
   messagingSenderId: "YOUR_SENDER_ID",
   appId: "YOUR_APP_ID"
 };
