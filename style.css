@@ -1,4 +1,18 @@
-:root{--max-height:520px;--gap:10px;--accent:#fff;--border:#ccc;--muted:#888;--btn-height:44px;--btn-radius:22px;--font-size:14px;--arrival-bg:#ff4b4b;--poll-bg:#fff6e6;--poll-accent:#1a73e8;--presence-size:10px;--presence-offset:4px}
+:root{
+  --max-height:520px;
+  --gap:10px;
+  --accent:#fff;
+  --border:#ccc;
+  --muted:#888;
+  --btn-height:44px;
+  --btn-radius:22px;
+  --font-size:14px;
+  --arrival-bg:#ff4b4b;
+  --poll-bg:#fff6e6;
+  --poll-accent:#1a73e8;
+  --presence-size:10px;
+  --presence-offset:4px
+}
 *{box-sizing:border-box}
 body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;padding:20px;margin:0;background:#f9f9f9;color:#222}
 #authButtons{margin-bottom:12px}
@@ -49,7 +63,7 @@ button{padding:8px 12px;margin:5px;cursor:pointer;border:1px solid var(--border)
 /* マス */
 .shogiBoard .grid-cell{border:1px solid rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;background:transparent;cursor:pointer}
 
-/* 駒画像 */
+/* 駒画像（共通） */
 .shogiBoard img { display:block; max-width:70%; max-height:70%; user-select:none; pointer-events:none; }
 
 /* 後手駒は回転して向きを逆にする */
