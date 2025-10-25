@@ -680,6 +680,38 @@ async function renderShogiBoard(gid, shogiState){
 +  }
 +  return moves;
 +}
+
+async function makeShogiMove(gid, uid, from, to){
+  try {
+    if (!gamesRef) return;
+    const shogiRef = gamesRef.child(gid).child('shogi');
+    await shogiRef.transaction(current => {
+      if (!current) return current;
+      const board = current.board || initialShogiBoard();
+      const piece = board[from.r][from.c];
+      if (!piece || piece === '.') return;
++
++     // 勝敗判定：王を取ったら終了
++     const target = board[to.r][to.c];
++     if (target === 'k' || target === 'K') {
++       if (uid === auth.currentUser.uid) {
++         alert("あなたの勝利");
++       } else {
++         alert("あなたの負け");
++       }
++     }
+      board[to.r][to.c] = piece;
+      board[from.r][from.c] = '.';
+      const moves = current.moves || [];
+      moves.push({ by: uid, from, to, ts: now() });
+      const activePlayers = gameLocalState?.activePlayers ? Object.keys(gameLocalState.activePlayers) : [];
+      const other = activePlayers.find(u=>u!==uid) || uid;
+      current.board = board; current.moves = moves; current.turn = other;
+      return current;
+    });
+  } catch(e){ console.error('makeShogiMove error', e); }
+}
+
 async function endGame(gid, winnerUid){
   try {
     if (!gamesRef) return;
