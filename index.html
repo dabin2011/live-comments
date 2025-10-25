@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>配信 + コメント + 将棋</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- 必須: Firebase SDK をここに追加すること -->
+  <!-- Firebase SDK を読み込んでから script.js を読み込んでください -->
 </head>
 <body>
   <header class="topbar">
     <div class="left">
-      <button id="loginBtn">ログイン</button>
-      <button id="mypageBtn" style="display:none">マイページ</button>
-      <button id="logoutBtn" style="display:none">ログアウト</button>
+      <button id="loginBtn" class="controlBtn">ログイン</button>
+      <button id="mypageBtn" class="controlBtn" style="display:none">マイページ</button>
+      <button id="logoutBtn" class="controlBtn" style="display:none">ログアウト</button>
     </div>
     <div class="center">
       <strong id="gameTitle">配信ページ</strong>
@@ -28,18 +28,15 @@
     <section class="leftColumn">
       <div id="arrivalBanner" class="arrivalBanner" aria-hidden="true"></div>
 
-      <!-- Poll area -->
       <div id="pollArea" class="poll-area" style="display:none" aria-hidden="true">
         <div id="pollContent" class="poll-content"></div>
         <div id="pollTimer" class="poll-timer" aria-hidden="true"></div>
       </div>
 
-      <!-- Comments list -->
       <div id="commentsContainer" class="commentsContainer">
         <div id="comments" class="comments" aria-live="polite"></div>
       </div>
 
-      <!-- Comment form -->
       <form id="form" class="commentForm" onsubmit="event.preventDefault(); sendComment();">
         <input id="commentInput" type="text" placeholder="コメントを入力..." autocomplete="off" />
         <button id="sendBtn" type="button">送信</button>
@@ -49,10 +46,8 @@
     <aside class="rightColumn">
       <div class="controls">
         <div class="gameControlsTop">
-          <button id="pollBtn">アンケート作成</button>
-          <button id="gameBtn">ゲーム</button>
-          <button id="uploadPieceBtn">駒画像アップ</button>
-          <button id="uploadBoardBtn">盤画像アップ</button>
+          <button id="pollBtn" class="controlBtn">アンケート作成</button>
+          <button id="gameBtn" class="controlBtn">ゲーム</button>
         </div>
 
         <div id="gameArea" class="gameArea" style="display:none" aria-hidden="true">
@@ -68,7 +63,6 @@
     </aside>
   </main>
 
-  <!-- Modals (構造を統一、重複ID削除、フォーカス可能要素を先頭に配置) -->
   <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true"></div>
 
   <div id="pollModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" data-modal-id="pollModal">
@@ -119,14 +113,6 @@
         <label>新しい表示名 <input id="newName" type="text" /></label>
         <button id="updateNameBtn" type="button">更新</button>
       </div>
-      <form id="uploadForm" style="margin-top:12px">
-        <div>
-          <label>駒画像: <input id="pieceImageFile" type="file" accept="image/*" /></label>
-        </div>
-        <div>
-          <label>盤画像: <input id="boardImageFile" type="file" accept="image/*" /></label>
-        </div>
-      </form>
     </div>
   </div>
 
