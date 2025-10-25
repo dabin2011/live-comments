@@ -509,6 +509,7 @@ async function finalizePoll(){
 }
 
 /* Game（将棋） */
+
 // 駒コードと画像ファイルの対応表
 const pieceImages = {
   'p': 'pawn.png','P': 'pawn.png',
@@ -526,6 +527,10 @@ const pieceImages = {
   '+r': 'dragon.png',
   '+b': 'horse.png'
 };
+
+// 選択中の駒を記録
+let selectedPiece = null;
+
 function startGameByHost(){
   try {
     if (!auth?.currentUser) return alert('ゲーム開始はログインが必要です');
@@ -539,6 +544,7 @@ function startGameByHost(){
     closeModal('gameModal');
   } catch(e){ console.error('startGame error', e); alert('ゲーム作成に失敗しました'); }
 }
+
 function openGameUI(gid, initialObj){
   if (!gid) return;
   try { if (currentGameId && gamesRef) gamesRef.child(currentGameId).off(); } catch(e){}
@@ -552,6 +558,7 @@ function openGameUI(gid, initialObj){
     gameLocalState = g; renderGameState(g); renderGameHeader(g);
   });
 }
+
 function renderGameHeader(game){
   const title = el('gameTitle'); title && (title.textContent = game.type === 'shogi' ? '将棋（対戦）' : 'ゲーム');
   const controls = el('gameControls'); if (!controls) return; controls.innerHTML = '';
@@ -573,12 +580,14 @@ function renderGameHeader(game){
     const info = document.createElement('span'); info.textContent='参加するにはログインしてください'; info.style.marginLeft='8px'; info.style.color='#666'; controls.appendChild(info);
   }
 }
+
 async function requestJoinGame(gid){
   if (!auth?.currentUser) return alert('ログインしてください');
   const u = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || 'ユーザー', accepted:false, ts: now() };
   gamesRef && await gamesRef.child(gid).child('players').child(u.uid).set(u);
   alert('参加希望を出しました。主催者が選出するまでお待ちください。');
 }
+
 async function pickAndStartGame(gid){
   try {
     if (!gamesRef) return alert('サーバ未接続のため簡易開始は不可');
@@ -597,6 +606,7 @@ async function pickAndStartGame(gid){
     await gamesRef.child(gid).child('shogi').set({ board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] });
   } catch(e){ console.error('pickAndStartGame error', e); }
 }
+
 function initialShogiBoard(){
   return [
     ['l','n','s','g','k','g','s','n','l'],
@@ -610,13 +620,25 @@ function initialShogiBoard(){
     ['L','N','S','G','K','G','S','N','L']
   ];
 }
+
 function renderGameState(game){
   if (!game) return;
   if (game.type === 'shogi') {
     const shogi = game.shogi || game.shogiState || {};
     renderShogiBoard(game.id, shogi);
+
+    // 自分の番かどうかを表示
+    const info = el('gameInfo');
+    if (auth?.currentUser) {
+      if (shogi.turn === auth.currentUser.uid) {
+        info.textContent = "あなたの番です";
+      } else {
+        info.textContent = "相手の番です";
+      }
+    }
   }
 }
+
 async function renderShogiBoard(gid, shogiState){
   const container = el('shogiContainer'); if (!container) return;
   container.innerHTML = '';
@@ -624,12 +646,21 @@ async function renderShogiBoard(gid, shogiState){
   const size = 9;
   const grid = document.createElement('div'); grid.className='grid';
   const board = shogiState?.board || initialShogiBoard();
+
   for (let r=0;r<size;r++){
     for (let c=0;c<size;c++){
-      const sq = document.createElement('div'); sq.className='grid-cell'; sq.dataset.r=r; sq.dataset.c=c;
+      const sq = document.createElement('div'); 
+      sq.className='grid-cell'; 
+      sq.dataset.r=r; sq.dataset.c=c;
       const piece = board[r][c];
       if (piece && piece !== '.') {
-        const img = document.createElement('img'); img.alt = piece;
+        const img = document.createElement('img');
+        img.alt = piece;
+        const filename = pieceImages[piece] || 'pawn.png';
+        img.src = `assets/koma/${filename}`;
+        if (piece === piece.toLowerCase()) img.classList.add('koma-gote');
+
+        //
         // 駒コードに応じて画像を切り替え
         const filename = pieceImages[piece] || 'pawn.png';
         img.src = `assets/koma/${filename}`;
