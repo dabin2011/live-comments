@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>配信 + コメント + 将棋</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Firebase SDK を読み込んでから script.js を読み込んでください -->
+  <!-- 必須: Firebase SDK を下記（例）で追加してください（順序を守ること） -->
+  <!--
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  -->
 </head>
 <body>
   <header class="topbar">
@@ -109,10 +115,20 @@
       <button class="close" data-close="mypageModal" aria-label="閉じる">✕</button>
       <h3>マイページ</h3>
       <div id="assetPreview" class="assetPreview"></div>
+
       <div style="margin-top:12px">
         <label>新しい表示名 <input id="newName" type="text" /></label>
         <button id="updateNameBtn" type="button">更新</button>
       </div>
+
+      <form id="profileUploadForm" style="margin-top:12px" onsubmit="event.preventDefault(); uploadProfileImage();">
+        <div>
+          <label>プロフィール画像: <input id="profileImageFile" type="file" accept="image/*" /></label>
+        </div>
+        <div style="margin-top:8px">
+          <button id="uploadProfileBtn" type="button">アップロード</button>
+        </div>
+      </form>
     </div>
   </div>
 
