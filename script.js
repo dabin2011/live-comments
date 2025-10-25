@@ -1,4 +1,4 @@
-// script.js — 修正版（コメント・アンケート・将棋、画像駒・後手は回転で表現）
+// script.js — 修正版（コメント表示を確実にするための堅牢化を含む）
 // 必ず firebaseConfig と GAS_URL を実環境の値に置き換えてください。
 
 // ====== Firebase 設定を置き換えてください ======
@@ -15,18 +15,18 @@ const firebaseConfig = {
 if (typeof firebase === 'undefined') {
   console.error('Firebase SDK が読み込まれていません');
 } else if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
+  try { firebase.initializeApp(firebaseConfig); } catch (e) { console.error('firebase initialize error', e); }
 }
 
 // Refs
-const auth = firebase.auth();
-const db = firebase.database();
-const commentsRef = db.ref('comments');
-const pollsRef = db.ref('polls');
-const arrivalsRef = db.ref('arrivals');
-const presenceRefRoot = db.ref('presence');
-const gamesRef = db.ref('games');
-const usersRef = db.ref('users');
+const auth = firebase?.auth?.();
+const db = firebase?.database?.();
+const commentsRef = db ? db.ref('comments') : null;
+const pollsRef = db ? db.ref('polls') : null;
+const arrivalsRef = db ? db.ref('arrivals') : null;
+const presenceRefRoot = db ? db.ref('presence') : null;
+const gamesRef = db ? db.ref('games') : null;
+const usersRef = db ? db.ref('users') : null;
 
 // Apps Script Web アプリ URL (画像アップロード)
 const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
@@ -109,8 +109,8 @@ async function resolvePieceImageUrl(pieceChar) {
     }
   } catch (e) {}
   try {
-    const uid = auth.currentUser?.uid;
-    if (uid) {
+    const uid = auth?.currentUser?.uid;
+    if (uid && usersRef) {
       const snap = await usersRef.child(uid).child('assets').once('value');
       const assets = snap.val() || {};
       if (assets.pieceMap && assets.pieceMap[pieceChar]) return assets.pieceMap[pieceChar];
@@ -139,9 +139,9 @@ function showAssetPreview(url, msg) {
 
 // マイページで自分の assets を表示
 async function showMyAssetsPreview() {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return;
   try {
+    const uid = auth?.currentUser?.uid;
+    if (!uid || !usersRef) return;
     const snap = await usersRef.child(uid).child('assets').once('value');
     const assets = snap.val() || {};
     const p = el('assetPreview');
@@ -163,68 +163,72 @@ async function showMyAssetsPreview() {
     }
     html += '</div>';
     p.innerHTML = html;
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error('showMyAssetsPreview error', e); }
 }
 
 // DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.modal .close').forEach(btn => btn.addEventListener('click', () => {
-    const id = btn.getAttribute('data-close') || btn.closest('.modal')?.id;
-    if (id) closeModal(id);
-  }));
-  document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) closeModal(modal.id); }));
+  try {
+    document.querySelectorAll('.modal .close').forEach(btn => btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-close') || btn.closest('.modal')?.id;
+      if (id) closeModal(id);
+    }));
+    document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) closeModal(modal.id); }));
 
-  const safeAdd = (id, ev, fn) => { const elc = document.getElementById(id); if (elc) elc.addEventListener(ev, fn); };
-  safeAdd('sendBtn', 'click', sendComment);
-  safeAdd('pollBtn', 'click', () => openModal('pollModal'));
-  safeAdd('addPollOptionBtn', 'click', addPollOption);
-  safeAdd('createPollBtn', 'click', createPollFromModal);
+    const safeAdd = (id, ev, fn) => { const elc = document.getElementById(id); if (elc) elc.addEventListener(ev, fn); };
+    safeAdd('sendBtn', 'click', sendComment);
+    safeAdd('pollBtn', 'click', () => openModal('pollModal'));
+    safeAdd('addPollOptionBtn', 'click', addPollOption);
+    safeAdd('createPollBtn', 'click', createPollFromModal);
 
-  safeAdd('gameBtn', 'click', () => openModal('gameModal'));
-  safeAdd('startGameBtn', 'click', startGameByHost);
-  document.querySelectorAll('.gameChoice').forEach(btn => btn.addEventListener('click', () => {
-    document.querySelectorAll('.gameChoice').forEach(b => b.removeAttribute('data-selected'));
-    btn.setAttribute('data-selected', 'true');
-  }));
+    safeAdd('gameBtn', 'click', () => openModal('gameModal'));
+    safeAdd('startGameBtn', 'click', startGameByHost);
+    document.querySelectorAll('.gameChoice').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelectorAll('.gameChoice').forEach(b => b.removeAttribute('data-selected'));
+      btn.setAttribute('data-selected', 'true');
+    }));
 
-  safeAdd('signupBtn', 'click', signUp);
-  safeAdd('signinBtn', 'click', signIn);
-  safeAdd('logoutBtn', 'click', async () => { try { await auth.signOut(); } catch (err) { console.error(err); alert('ログアウト失敗'); } });
-  safeAdd('updateNameBtn', 'click', updateProfile);
+    safeAdd('signupBtn', 'click', signUp);
+    safeAdd('signinBtn', 'click', signIn);
+    safeAdd('logoutBtn', 'click', async () => { try { await auth.signOut(); } catch (err) { console.error(err); alert('ログアウト失敗'); } });
+    safeAdd('updateNameBtn', 'click', updateProfile);
 
-  safeAdd('callCancelBtn', 'click', () => closeModal('callRequestPopup'));
-  safeAdd('callSendBtn', 'click', sendCallRequestFromPopup);
-  safeAdd('rejectCallBtn', 'click', () => respondToIncomingCall('rejected'));
-  safeAdd('acceptCallBtn', 'click', () => respondToIncomingCall('accepted'));
-  safeAdd('callNotifyClose', 'click', () => closeModal('callNotifyPopup'));
+    safeAdd('callCancelBtn', 'click', () => closeModal('callRequestPopup'));
+    safeAdd('callSendBtn', 'click', sendCallRequestFromPopup);
+    safeAdd('rejectCallBtn', 'click', () => respondToIncomingCall('rejected'));
+    safeAdd('acceptCallBtn', 'click', () => respondToIncomingCall('accepted'));
+    safeAdd('callNotifyClose', 'click', () => closeModal('callNotifyPopup'));
 
-  const uf = el('uploadForm'); if (uf) uf.addEventListener('submit', handleUploadForm);
+    const uf = el('uploadForm'); if (uf) uf.addEventListener('submit', handleUploadForm);
 
-  // asset upload buttons
-  safeAdd('uploadPieceBtn','click', uploadPieceImage);
-  safeAdd('uploadBoardBtn','click', uploadBoardImage);
+    // asset upload buttons
+    safeAdd('uploadPieceBtn','click', uploadPieceImage);
+    safeAdd('uploadBoardBtn','click', uploadBoardImage);
 
-  const commentsEl = el('comments');
-  if (commentsEl) {
-    commentsEl.addEventListener('click', ev => {
-      const badge = ev.target.closest('.call-badge');
-      if (badge) { const uid = badge.getAttribute('data-uid'); if (uid) openCallRequestPopup(uid); }
-      const img = ev.target.closest('img[data-uid]');
-      if (img) { const uid = img.getAttribute('data-uid'); if (uid) openCallRequestPopup(uid); }
-    });
+    const commentsEl = el('comments');
+    if (commentsEl) {
+      commentsEl.addEventListener('click', ev => {
+        const badge = ev.target.closest('.call-badge');
+        if (badge) { const uid = badge.getAttribute('data-uid'); if (uid) openCallRequestPopup(uid); }
+        const img = ev.target.closest('img[data-uid]');
+        if (img) { const uid = img.getAttribute('data-uid'); if (uid) openCallRequestPopup(uid); }
+      });
+    }
+
+    if (arrivalsRef) {
+      arrivalsRef.on('child_added', snap => {
+        const d = snap.val();
+        if (d && d.type === 'arrival') showArrivalBanner(d.name || 'ゲスト');
+        snap.ref.remove().catch(() => { });
+      });
+    }
+
+    ensurePollListener();
+    initComments();
+    initGameAutoSubscribe();
+  } catch (e) {
+    console.error('DOMContentLoaded handler error', e);
   }
-
-  arrivalsRef.on('child_added', snap => {
-    const d = snap.val();
-    if (d && d.type === 'arrival') showArrivalBanner(d.name || 'ゲスト');
-    snap.ref.remove().catch(() => { });
-  });
-
-  ensurePollListener();
-  initComments();
-  initGameAutoSubscribe();
 });
 
 // Arrival banner
@@ -237,138 +241,273 @@ function showArrivalBanner(name) {
 }
 
 // Auth & presence
-auth.onAuthStateChanged(async user => {
-  const loginBtn = el('loginBtn'), mypageBtn = el('mypageBtn'), logoutBtn = el('logoutBtn'),
-    usernameEl = el('username'), avatarEl = el('avatar'), myPoints = el('myPoints');
+if (auth) {
+  auth.onAuthStateChanged(async user => {
+    try {
+      const loginBtn = el('loginBtn'), mypageBtn = el('mypageBtn'), logoutBtn = el('logoutBtn'),
+        usernameEl = el('username'), avatarEl = el('avatar'), myPoints = el('myPoints');
 
-  if (user) {
-    if (loginBtn) loginBtn.style.display = 'none';
-    if (mypageBtn) mypageBtn.style.display = 'inline-block';
-    if (logoutBtn) logoutBtn.style.display = 'inline-block';
-    const name = user.displayName || user.email || 'ユーザー';
-    if (usernameEl) usernameEl.textContent = name;
-    if (avatarEl && user.photoURL) avatarEl.src = user.photoURL;
-    arrivalsRef.push({ type: 'arrival', name, timestamp: now() }).catch(() => { });
-    attachPresence(user.uid);
-    listenIncomingCalls(user.uid);
-    try { const snap = await usersRef.child(user.uid).child('points').once('value'); const pts = snap.val() || 0; if (myPoints) myPoints.textContent = pts; } catch (e) {}
-  } else {
-    if (loginBtn) loginBtn.style.display = 'inline-block';
-    if (mypageBtn) mypageBtn.style.display = 'none';
-    if (logoutBtn) logoutBtn.style.display = 'none';
-    if (usernameEl) usernameEl.textContent = '';
-    if (avatarEl) avatarEl.src = '';
-    detachPresence();
-    stopListeningIncomingCalls();
-  }
-});
+      if (user) {
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (mypageBtn) mypageBtn.style.display = 'inline-block';
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        const name = user.displayName || user.email || 'ユーザー';
+        if (usernameEl) usernameEl.textContent = name;
+        if (avatarEl && user.photoURL) avatarEl.src = user.photoURL;
+        if (arrivalsRef) arrivalsRef.push({ type: 'arrival', name, timestamp: now() }).catch(() => { });
+        attachPresence(user.uid);
+        listenIncomingCalls(user.uid);
+        try { const snap = await usersRef.child(user.uid).child('points').once('value'); const pts = snap.val() || 0; if (myPoints) myPoints.textContent = pts; } catch (e) {}
+      } else {
+        if (loginBtn) loginBtn.style.display = 'inline-block';
+        if (mypageBtn) mypageBtn.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (usernameEl) usernameEl.textContent = '';
+        if (avatarEl) avatarEl.src = '';
+        detachPresence();
+        stopListeningIncomingCalls();
+      }
+    } catch (e) {
+      console.error('onAuthStateChanged handler error', e);
+    }
+  });
+}
 
 // Auth functions
-async function signUp() { const email = el('email')?.value?.trim(); const password = el('password')?.value || ''; if (!email || !password) return alert('メールとパスワードを入力してください'); try { await auth.createUserWithEmailAndPassword(email, password); alert('登録しました'); closeModal('loginModal'); } catch (e) { console.error(e); alert('登録失敗: ' + (e.message || e)); } }
-async function signIn() { const email = el('email')?.value?.trim(); const password = el('password')?.value || ''; if (!email || !password) return alert('メールとパスワードを入力してください'); try { await auth.signInWithEmailAndPassword(email, password); alert('ログインしました'); closeModal('loginModal'); } catch (e) { console.error(e); alert('ログイン失敗: ' + (e.message || e)); } }
-async function updateProfile() { const user = auth.currentUser; if (!user) return alert('ログインしてください'); const newName = el('newName')?.value?.trim(); if (!newName) return alert('ユーザー名を入力してください'); try { await user.updateProfile({ displayName: newName }); const usernameEl = el('username'); if (usernameEl) usernameEl.textContent = newName; alert('ユーザー名を更新しました'); closeModal('mypageModal'); } catch (err) { console.error(err); alert('更新失敗'); } }
+async function signUp() { try {
+  const email = el('email')?.value?.trim(); const password = el('password')?.value || '';
+  if (!email || !password) return alert('メールとパスワードを入力してください');
+  await auth.createUserWithEmailAndPassword(email, password);
+  alert('登録しました'); closeModal('loginModal');
+} catch (e) { console.error('signUp error', e); alert('登録失敗: ' + (e.message || e)); } }
+
+async function signIn() { try {
+  const email = el('email')?.value?.trim(); const password = el('password')?.value || '';
+  if (!email || !password) return alert('メールとパスワードを入力してください');
+  await auth.signInWithEmailAndPassword(email, password);
+  alert('ログインしました'); closeModal('loginModal');
+} catch (e) { console.error('signIn error', e); alert('ログイン失敗: ' + (e.message || e)); } }
+
+async function updateProfile() { try {
+  const user = auth.currentUser; if (!user) return alert('ログインしてください');
+  const newName = el('newName')?.value?.trim(); if (!newName) return alert('ユーザー名を入力してください');
+  await user.updateProfile({ displayName: newName });
+  const usernameEl = el('username'); if (usernameEl) usernameEl.textContent = newName;
+  alert('ユーザー名を更新しました'); closeModal('mypageModal');
+} catch (err) { console.error('updateProfile error', err); alert('更新失敗'); } }
 
 function attachPresence(uid) {
-  if (!uid) return;
-  myPresenceRef = presenceRefRoot.child(uid);
-  myPresenceRef.set({ online: true, lastSeen: now() }).catch(() => { });
-  try { myPresenceRef.onDisconnect().set({ online: false, lastSeen: now() }).catch(() => { }); } catch (e) {}
+  if (!uid || !presenceRefRoot) return;
+  try {
+    myPresenceRef = presenceRefRoot.child(uid);
+    myPresenceRef.set({ online: true, lastSeen: now() }).catch(() => { });
+    try { myPresenceRef.onDisconnect().set({ online: false, lastSeen: now() }).catch(() => { }); } catch (e) {}
+  } catch (e) { console.error('attachPresence error', e); }
 }
 function detachPresence() {
   if (myPresenceRef) {
-    myPresenceRef.set({ online: false, lastSeen: now() }).catch(() => { });
+    try { myPresenceRef.set({ online: false, lastSeen: now() }).catch(() => { }); } catch (e) {}
     try { myPresenceRef.onDisconnect().cancel(); } catch (e) {}
     myPresenceRef = null;
   }
 }
 
-// Comments
+// ===== コメント関連（修正版：堅牢化） =====
+
+// 初期化：最初のコメント時刻取得＋child_added リスナー登録
 function initComments() {
-  commentsRef.orderByChild('ts').limitToFirst(1).once('value').then(snap => {
-    let earliest = null;
-    snap.forEach(child => { const d = child.val(); if (d && d.ts) earliest = d.ts; });
-    firstCommentTime = earliest || now();
-  }).catch(() => { firstCommentTime = now(); });
+  try {
+    const commentsEl = el('comments');
+    if (!commentsEl) {
+      console.warn('initComments: #comments 要素が見つかりません');
+      return;
+    }
 
-  commentsRef.orderByChild('ts').limitToLast(500).on('child_added', snap => {
-    const d = snap.val(); if (!d) return;
-    if (d.ts && (d.ts - (firstCommentTime || now()) > THREE_HOURS)) return;
-    renderComment(d);
-  }, err => console.warn('comments on error', err));
-}
+    if (!commentsRef) {
+      console.warn('initComments: commentsRef が未定義です');
+      return;
+    }
 
-function renderComment(d) {
-  const commentsEl = el('comments'); if (!commentsEl) return;
-  const idKey = d._id || (d.uid ? `${d.uid}_${d.ts || 0}` : `c_${Math.random()}`);
-  if (commentsEl.querySelector(`[data-cid="${idKey}"]`)) return;
+    // earliest comment timestamp を取得（存在すれば）
+    commentsRef.orderByChild('ts').limitToFirst(1).once('value')
+      .then(snap => {
+        let earliest = null;
+        snap.forEach(child => {
+          const d = child.val();
+          if (d && d.ts) earliest = d.ts;
+        });
+        firstCommentTime = earliest || now();
+        console.log('initComments: firstCommentTime=', firstCommentTime);
+      })
+      .catch(err => {
+        console.error('initComments: earliest snapshot error', err);
+        firstCommentTime = now();
+      });
 
-  const div = document.createElement('div'); div.className = 'comment'; div.setAttribute('data-cid', idKey);
-  const avatarUrl = d.photo || 'https://via.placeholder.com/40';
-  const name = d.name || '匿名';
-  const time = d.ts ? new Date(d.ts).toLocaleTimeString() : '';
-  const avatarWrap = document.createElement('div'); avatarWrap.className = 'avatarWrap'; avatarWrap.style.marginRight = '10px';
-  const img = document.createElement('img'); img.className = 'avatar'; img.src = avatarUrl; img.width = 40; img.height = 40; img.style.borderRadius = '50%'; img.setAttribute('data-uid', d.uid || '');
-  avatarWrap.appendChild(img);
-  const pDot = document.createElement('span'); pDot.className = 'presence-dot presence-offline'; pDot.id = `presenceDot-${d.uid || idKey}`;
-  avatarWrap.appendChild(pDot);
-
-  const meta = document.createElement('div'); meta.className = 'meta';
-  meta.innerHTML = `<strong>${escapeHtml(name)} <small style="color:#666;font-weight:400;margin-left:6px">${escapeHtml(time)}</small></strong><div>${escapeHtml(d.text || '')}</div>`;
-
-  const right = document.createElement('div'); right.style.marginLeft = 'auto'; right.style.display = 'flex'; right.style.alignItems = 'center';
-  const callBadge = document.createElement('span'); callBadge.className = 'call-badge'; callBadge.textContent = '通話'; callBadge.setAttribute('data-uid', d.uid || '');
-  right.appendChild(callBadge);
-
-  div.appendChild(avatarWrap);
-  div.appendChild(meta);
-  div.appendChild(right);
-
-  commentsEl.insertBefore(div, commentsEl.firstChild || null);
-
-  if (d.uid) {
-    presenceRefRoot.child(d.uid).on('value', snap => {
-      const v = snap.val();
-      const dot = document.getElementById(`presenceDot-${d.uid}`);
-      if (dot) {
-        dot.classList.toggle('presence-online', !!v && !!v.online);
-        dot.classList.toggle('presence-offline', !v || !v.online);
+    // 表示上限（安全のため）を設定して listener を登録
+    commentsRef.orderByChild('ts').limitToLast(500).on('child_added', snap => {
+      try {
+        const d = snap.val();
+        if (!d) return;
+        // 古すぎるコメントは無視（配信開始3時間より古いものを落とす）
+        if (d.ts && firstCommentTime && (d.ts - firstCommentTime > THREE_HOURS)) return;
+        renderComment(d);
+      } catch (e) {
+        console.error('initComments: render error', e);
       }
+    }, err => {
+      console.error('initComments: firebase listener error', err);
     });
+
+    // 追加のエラーハンドラ（接続状況など）
+    commentsRef.on('value', () => {}, err => console.warn('comments on value error', err));
+  } catch (e) {
+    console.error('initComments: unexpected error', e);
   }
 }
 
-function sendComment() {
-  const input = el('commentInput'); if (!input) return alert('入力欄が見つかりません');
-  const text = input.value.trim(); if (!text) return alert('コメントを入力してください');
-  const user = auth.currentUser;
-  if (!user) return alert('コメントにはログインが必要です');
-  const payload = { uid: user.uid, name: user.displayName || user.email || 'ユーザー', photo: user.photoURL || '', text, ts: now() };
-  commentsRef.push(payload).then(() => { input.value = ''; }).catch(err => { console.error('コメント保存エラー', err); alert('送信失敗'); });
+// コメントを DOM にレンダリングする（重複ガード強化）
+function renderComment(d) {
+  try {
+    const commentsEl = el('comments');
+    if (!commentsEl) {
+      console.warn('renderComment: #comments 要素が見つかりません');
+      return;
+    }
+
+    // 一意キー作成（できるだけユニークに）
+    const idKey = d._id || (d.uid ? `${d.uid}_${d.ts || Math.floor(Math.random()*1e9)}` : `c_${Math.floor(Math.random()*1e9)}`);
+    if (commentsEl.querySelector(`[data-cid="${idKey}"]`)) {
+      return;
+    }
+
+    // DOM 作成
+    const div = document.createElement('div');
+    div.className = 'comment';
+    div.setAttribute('data-cid', idKey);
+
+    const avatarUrl = d.photo || 'https://via.placeholder.com/40?text=U';
+    const name = d.name || '匿名';
+    const time = d.ts ? new Date(d.ts).toLocaleTimeString() : '';
+
+    const avatarWrap = document.createElement('div');
+    avatarWrap.className = 'avatarWrap';
+    avatarWrap.style.marginRight = '10px';
+    const img = document.createElement('img');
+    img.className = 'avatar';
+    img.src = avatarUrl;
+    img.width = 40;
+    img.height = 40;
+    img.style.borderRadius = '50%';
+    if (d.uid) img.setAttribute('data-uid', d.uid);
+    avatarWrap.appendChild(img);
+
+    const pDot = document.createElement('span');
+    pDot.className = 'presence-dot presence-offline';
+    pDot.id = `presenceDot-${d.uid || idKey}`;
+    avatarWrap.appendChild(pDot);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = `<strong>${escapeHtml(name)} <small style="color:#666;font-weight:400;margin-left:6px">${escapeHtml(time)}</small></strong><div>${escapeHtml(d.text || '')}</div>`;
+
+    const right = document.createElement('div');
+    right.style.marginLeft = 'auto';
+    right.style.display = 'flex';
+    right.style.alignItems = 'center';
+    const callBadge = document.createElement('span');
+    callBadge.className = 'call-badge';
+    callBadge.textContent = '通話';
+    if (d.uid) callBadge.setAttribute('data-uid', d.uid);
+    right.appendChild(callBadge);
+
+    div.appendChild(avatarWrap);
+    div.appendChild(meta);
+    div.appendChild(right);
+
+    // 新着は先頭に差し込む
+    commentsEl.insertBefore(div, commentsEl.firstChild || null);
+
+    // presence を監視（一度だけ set）
+    if (d.uid && presenceRefRoot) {
+      try {
+        presenceRefRoot.child(d.uid).on('value', snap => {
+          try {
+            const v = snap.val();
+            const dot = document.getElementById(`presenceDot-${d.uid}`);
+            if (dot) {
+              dot.classList.toggle('presence-online', !!v && !!v.online);
+              dot.classList.toggle('presence-offline', !v || !v.online);
+            }
+          } catch (e) {
+            console.error('presence listener inner error for', d.uid, e);
+          }
+        }, err => {
+          console.warn('presence listener firebase error for', d.uid, err);
+        });
+      } catch (e) {
+        console.error('presence listener setup error for', d.uid, e);
+      }
+    }
+  } catch (e) {
+    console.error('renderComment: unexpected error', e);
+  }
 }
 
-// Polls
+// コメント送信
+function sendComment() {
+  try {
+    const input = el('commentInput');
+    if (!input) { alert('入力欄が見つかりません'); return; }
+    const text = input.value.trim();
+    if (!text) { alert('コメントを入力してください'); return; }
+    const user = auth?.currentUser;
+    if (!user) { alert('コメントにはログインが必要です'); return; }
+    const payload = { uid: user.uid, name: user.displayName || user.email || 'ユーザー', photo: user.photoURL || '', text, ts: now() };
+    commentsRef.push(payload).then(() => {
+      input.value = '';
+      console.log('sendComment: pushed', payload);
+    }).catch(err => {
+      console.error('コメント保存エラー', err);
+      alert('送信失敗');
+    });
+  } catch (e) {
+    console.error('sendComment unexpected error', e);
+  }
+}
+
+// ===== Polls / Game / Upload etc.（既存の機能群を省略せずに実装） =====
+// ここから下はシステムに必要な既存関数をそのまま載せています。
+// （アンケート、ゲーム、アップロード、通話プレースホルダなど）
+// 必要に応じて元の完全な実装を追加してください。
+
 function addPollOption() { const wrap = el('pollOptionsWrapper'); if (!wrap) return; const input = document.createElement('input'); input.type = 'text'; input.className = 'pollOptionInput'; input.placeholder = '選択肢'; wrap.appendChild(input); }
 function createPollFromModal() {
-  const q = el('pollQuestion'); if (!q) return alert('質問を入力してください');
-  const options = Array.from(document.querySelectorAll('.pollOptionInput')).map(i => i.value.trim()).filter(v => v);
-  if (!options.length) return alert('選択肢を1つ以上入力してください');
-  const poll = { active: true, question: q.value.trim(), options: options.map((label, idx) => ({ id: 'o' + idx + '_' + now(), label, count: 0 })), state: 'voting', startedAt: now(), endsAt: now() + POLL_DURATION_MS, votes: {} };
-  pollsRef.child('active').set(poll).then(() => { closeModal('pollModal'); }).catch(err => { console.error('createPoll error', err); alert('アンケート作成失敗'); });
+  try {
+    const q = el('pollQuestion'); if (!q) return alert('質問を入力してください');
+    const options = Array.from(document.querySelectorAll('.pollOptionInput')).map(i => i.value.trim()).filter(v => v);
+    if (!options.length) return alert('選択肢を1つ以上入力してください');
+    const poll = { active: true, question: q.value.trim(), options: options.map((label, idx) => ({ id: 'o' + idx + '_' + now(), label, count: 0 })), state: 'voting', startedAt: now(), endsAt: now() + POLL_DURATION_MS, votes: {} };
+    pollsRef.child('active').set(poll).then(() => { closeModal('pollModal'); }).catch(err => { console.error('createPoll error', err); alert('アンケート作成失敗'); });
+  } catch (e) { console.error('createPollFromModal error', e); }
 }
 function ensurePollListener() {
-  pollsRef.child('active').on('value', snap => {
-    const data = snap.val();
-    if (!data || data.active !== true) { hidePollUI(); localActivePoll = null; return; }
-    localActivePoll = data;
-    renderPollState(data);
-    if (data.state === 'finished') {
-      if (_pollRemovalTimeout) clearTimeout(_pollRemovalTimeout);
-      _pollRemovalTimeout = setTimeout(async () => {
-        try { const snapCheck = await pollsRef.child('active').once('value'); const cur = snapCheck.val(); if (cur && cur.state === 'finished') await pollsRef.child('active').remove(); } catch (err) { console.error(err); } finally { hidePollUI(); if (_pollTimers.has('active')) { clearInterval(_pollTimers.get('active')); _pollTimers.delete('active'); } _pollRemovalTimeout = null; }
-      }, POLL_AFTER_FINISH_DISPLAY_MS);
-    }
-    if (data.state === 'voting' && now() >= (data.endsAt || 0)) finalizePoll();
-  }, err => console.warn('poll listener error', err));
+  try {
+    if (!pollsRef) return;
+    pollsRef.child('active').on('value', snap => {
+      const data = snap.val();
+      if (!data || data.active !== true) { hidePollUI(); localActivePoll = null; return; }
+      localActivePoll = data;
+      renderPollState(data);
+      if (data.state === 'finished') {
+        if (_pollRemovalTimeout) clearTimeout(_pollRemovalTimeout);
+        _pollRemovalTimeout = setTimeout(async () => {
+          try { const snapCheck = await pollsRef.child('active').once('value'); const cur = snapCheck.val(); if (cur && cur.state === 'finished') await pollsRef.child('active').remove(); } catch (err) { console.error(err); } finally { hidePollUI(); if (_pollTimers.has('active')) { clearInterval(_pollTimers.get('active')); _pollTimers.delete('active'); } _pollRemovalTimeout = null; }
+        }, POLL_AFTER_FINISH_DISPLAY_MS);
+      }
+      if (data.state === 'voting' && now() >= (data.endsAt || 0)) finalizePoll();
+    }, err => console.warn('poll listener error', err));
+  } catch (e) { console.error('ensurePollListener error', e); }
 }
 function renderPollState(poll) {
   const pollArea = el('pollArea'); const pollContent = el('pollContent'); const pollTimer = el('pollTimer');
@@ -399,21 +538,23 @@ function renderPollState(poll) {
 }
 function hidePollUI() { const pa = el('pollArea'); if (pa) pa.style.display = 'none'; const pc = el('pollContent'); if (pc) pc.innerHTML = ''; }
 function voteOption(optId) {
-  const user = auth.currentUser; if (!user) return alert('投票にはログインが必要です');
-  const uid = user.uid; const activeRef = pollsRef.child('active');
-  activeRef.transaction(current => {
-    if (!current) return current; if (current.state !== 'voting') return current;
-    const prev = current.votes && current.votes[uid] && current.votes[uid].opt;
-    if (prev) { const idxPrev = (current.options || []).findIndex(o => o.id === prev); if (idxPrev >= 0) current.options[idxPrev].count = Math.max(0, (current.options[idxPrev].count || 0) - 1); }
-    const idx = (current.options || []).findIndex(o => o.id === optId);
-    if (idx >= 0) current.options[idx].count = (current.options[idx].count || 0) + 1;
-    if (!current.votes) current.votes = {}; current.votes[uid] = { opt: optId, at: now(), name: user.displayName || user.email || 'ユーザー' };
-    return current;
-  }, (err) => { if (err) console.error('vote txn error', err); });
+  try {
+    const user = auth?.currentUser; if (!user) return alert('投票にはログインが必要です');
+    const uid = user.uid; const activeRef = pollsRef.child('active');
+    activeRef.transaction(current => {
+      if (!current) return current; if (current.state !== 'voting') return current;
+      const prev = current.votes && current.votes[uid] && current.votes[uid].opt;
+      if (prev) { const idxPrev = (current.options || []).findIndex(o => o.id === prev); if (idxPrev >= 0) current.options[idxPrev].count = Math.max(0, (current.options[idxPrev].count || 0) - 1); }
+      const idx = (current.options || []).findIndex(o => o.id === optId);
+      if (idx >= 0) current.options[idx].count = (current.options[idx].count || 0) + 1;
+      if (!current.votes) current.votes = {}; current.votes[uid] = { opt: optId, at: now(), name: user.displayName || user.email || 'ユーザー' };
+      return current;
+    }, (err) => { if (err) console.error('vote txn error', err); });
+  } catch (e) { console.error('voteOption error', e); }
 }
 async function finalizePoll() {
-  const activeRef = pollsRef.child('active');
   try {
+    const activeRef = pollsRef.child('active');
     const snap = await activeRef.once('value');
     const poll = snap.val();
     if (!poll) return;
@@ -447,7 +588,7 @@ async function uploadPieceImage() {
   if (!f) return alert('駒画像を選んでください');
   try {
     const url = await uploadFileToGAS(f);
-    const uid = auth.currentUser?.uid;
+    const uid = auth?.currentUser?.uid;
     if (!uid) return alert('ログインしてください');
     await usersRef.child(uid).child('assets').update({ pieceUrl: url });
     showAssetPreview(url, '駒画像をアップロードしました');
@@ -459,7 +600,7 @@ async function uploadBoardImage() {
   if (!f) return alert('盤画像を選んでください');
   try {
     const url = await uploadFileToGAS(f);
-    const uid = auth.currentUser?.uid;
+    const uid = auth?.currentUser?.uid;
     if (!uid) return alert('ログインしてください');
     await usersRef.child(uid).child('assets').update({ boardUrl: url });
     showAssetPreview(url, '盤画像をアップロードしました');
@@ -472,27 +613,32 @@ function showAssetPreviewSimple(url, msg) {
   p.innerHTML = `${msg}<div style="margin-top:6px;"><img src="${url}" style="max-width:160px;max-height:160px;display:block;border:1px solid #ddd;padding:4px;background:#fff" /></div>`;
 }
 
-// Game features (将棋) — 画像駒で表示、後手は回転で表現
-function isHost() { if (gameLocalState && gameLocalState.hostUid) return !!auth.currentUser && auth.currentUser.uid === gameLocalState.hostUid; return !!auth.currentUser; }
+// ===== Game features (将棋) — 最小限の表示実装（必要なら完全実装を追加） =====
+function isHost() { if (gameLocalState && gameLocalState.hostUid) return !!auth?.currentUser && auth.currentUser.uid === gameLocalState.hostUid; return !!auth?.currentUser; }
 
 async function startGameByHost() {
-  if (!auth.currentUser) return alert('ゲーム開始はログインが必要です');
-  const chosen = document.querySelector('.gameChoice[data-selected="true"]');
-  if (!chosen) return alert('ゲームを選択してください');
-  const gameType = chosen.getAttribute('data-game');
-  const spectatorsAllowed = !!el('publicGame')?.checked;
-  const gid = gamesRef.push().key;
-  const gameObj = { id: gid, type: gameType, hostUid: auth.currentUser.uid, status: 'lobby', createdAt: now(), players: {}, spectatorsAllowed: !!spectatorsAllowed, winnerUid: null };
-  try { await gamesRef.child(gid).set(gameObj); openGameUI(gid, gameObj); closeModal('gameModal'); } catch (err) { console.error('startGame error', err); alert('ゲーム作成に失敗しました'); }
+  try {
+    if (!auth?.currentUser) return alert('ゲーム開始はログインが必要です');
+    const chosen = document.querySelector('.gameChoice[data-selected="true"]');
+    if (!chosen) return alert('ゲームを選択してください');
+    const gameType = chosen.getAttribute('data-game');
+    const spectatorsAllowed = !!el('publicGame')?.checked;
+    const gid = gamesRef.push().key;
+    const gameObj = { id: gid, type: gameType, hostUid: auth.currentUser.uid, status: 'lobby', createdAt: now(), players: {}, spectatorsAllowed: !!spectatorsAllowed, winnerUid: null };
+    await gamesRef.child(gid).set(gameObj);
+    openGameUI(gid, gameObj);
+    closeModal('gameModal');
+  } catch (err) { console.error('startGame error', err); alert('ゲーム作成に失敗しました'); }
 }
 
 function openGameUI(gid, initialObj) {
   if (!gid) return;
-  try { if (currentGameId) gamesRef.child(currentGameId).off(); } catch (e) {}
+  try { if (currentGameId && gamesRef) gamesRef.child(currentGameId).off(); } catch (e) {}
   currentGameId = gid;
   gameLocalState = initialObj || null;
   const ga = el('gameArea'); if (ga) ga.style.display = 'block';
   renderGameHeader(initialObj || {});
+  if (!gamesRef) return;
   gamesRef.child(gid).on('value', snap => {
     const g = snap.val();
     if (!g) { closeGameUI(); return; }
@@ -512,7 +658,7 @@ function renderGameHeader(game) {
   const hostInfo = document.createElement('span'); hostInfo.textContent = game.hostUid ? `主催: ${game.hostUid}` : '主催: なし'; hostInfo.style.marginRight = '12px'; hostInfo.style.opacity = '0.85';
   controls.appendChild(hostInfo);
 
-  // 使用中の駒・盤ファイル名を表示
+  // 使用中の駒・盤ファイル名表示（簡易）
   const assetsInfo = document.createElement('div');
   assetsInfo.style.display = 'inline-flex';
   assetsInfo.style.flexDirection = 'column';
@@ -525,7 +671,7 @@ function renderGameHeader(game) {
     assetsInfo.innerHTML = `<div style="font-size:12px;color:#444"><strong>駒</strong>: ${escapeHtml(pieceLabel)}</div><div style="font-size:12px;color:#444"><strong>盤</strong>: ${escapeHtml(boardLabel)}</div>`;
     controls.appendChild(assetsInfo);
   } else {
-    if (auth.currentUser) {
+    if (auth?.currentUser && usersRef) {
       usersRef.child(auth.currentUser.uid).child('assets').once('value').then(snap => {
         const assets = snap.val() || {};
         const pieceUrl = assets.pieceUrl || (assets.pieceMap && Object.values(assets.pieceMap)[0]) || '';
@@ -541,8 +687,7 @@ function renderGameHeader(game) {
     }
   }
 
-  // 既存の参加・操作ボタン（lobby / running に応じて追加）
-  if (auth.currentUser) {
+  if (auth?.currentUser) {
     if (game.status === 'lobby') {
       const joinBtn = document.createElement('button'); joinBtn.textContent = '参加希望'; joinBtn.addEventListener('click', () => requestJoinGame(game.id));
       controls.appendChild(joinBtn);
@@ -562,22 +707,24 @@ function renderGameHeader(game) {
   }
 }
 
-async function requestJoinGame(gid) { if (!auth.currentUser) return alert('ログインしてください'); const u = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || 'ユーザー', accepted: false, ts: now() }; await gamesRef.child(gid).child('players').child(u.uid).set(u); alert('参加希望を出しました。主催者が選出するまでお待ちください。'); }
+async function requestJoinGame(gid) { if (!auth?.currentUser) return alert('ログインしてください'); const u = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || 'ユーザー', accepted: false, ts: now() }; await gamesRef.child(gid).child('players').child(u.uid).set(u); alert('参加希望を出しました。主催者が選出するまでお待ちください。'); }
 
 async function pickAndStartGame(gid) {
-  const snap = await gamesRef.child(gid).child('players').once('value');
-  const players = []; snap.forEach(ch => { const v = ch.val(); if (v && v.uid) players.push(v); });
-  const candidates = players.filter(p => p.uid !== auth.currentUser.uid);
-  if (candidates.length === 0) return alert('参加希望者がいません');
-  const pick = candidates[Math.floor(Math.random() * candidates.length)];
-  const updates = {};
-  updates[`players/${auth.currentUser.uid}`] = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || '主催者', accepted: true, role: 'host', ts: now() };
-  updates[`players/${pick.uid}`] = { uid: pick.uid, name: pick.name, accepted: true, role: 'player', ts: now() };
-  updates['status'] = 'running';
-  updates['startedAt'] = now();
-  updates['activePlayers'] = { [auth.currentUser.uid]: true, [pick.uid]: true };
-  await gamesRef.child(gid).update(updates);
-  await gamesRef.child(gid).child('shogi').set({ board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] });
+  try {
+    const snap = await gamesRef.child(gid).child('players').once('value');
+    const players = []; snap.forEach(ch => { const v = ch.val(); if (v && v.uid) players.push(v); });
+    const candidates = players.filter(p => p.uid !== auth.currentUser.uid);
+    if (candidates.length === 0) return alert('参加希望者がいません');
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const updates = {};
+    updates[`players/${auth.currentUser.uid}`] = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || '主催者', accepted: true, role: 'host', ts: now() };
+    updates[`players/${pick.uid}`] = { uid: pick.uid, name: pick.name, accepted: true, role: 'player', ts: now() };
+    updates['status'] = 'running';
+    updates['startedAt'] = now();
+    updates['activePlayers'] = { [auth.currentUser.uid]: true, [pick.uid]: true };
+    await gamesRef.child(gid).update(updates);
+    await gamesRef.child(gid).child('shogi').set({ board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] });
+  } catch (e) { console.error('pickAndStartGame error', e); }
 }
 
 function initialShogiBoard() {
@@ -639,22 +786,24 @@ async function renderShogiBoard(gid, shogiState) {
       }
 
       sq.addEventListener('click', async () => {
-        const myUid = auth.currentUser?.uid;
-        const game = gameLocalState;
-        if (!game) return;
-        if (game.status !== 'running') return;
-        if (!game.activePlayers || !game.activePlayers[myUid]) return;
-        const turn = (shogiState && shogiState.turn) ? shogiState.turn : '';
-        if (turn !== myUid) return alert('相手の手番です');
-        if (!selected) {
-          if (board[r][c] === '.') return;
-          selected = { r, c, piece: board[r][c] };
-          sq.style.outline = '3px solid rgba(26,115,232,0.6)';
-        } else {
-          const from = selected; const to = { r, c };
-          await makeShogiMove(gid, auth.currentUser.uid, from, to);
-          selected = null;
-        }
+        try {
+          const myUid = auth?.currentUser?.uid;
+          const game = gameLocalState;
+          if (!game) return;
+          if (game.status !== 'running') return;
+          if (!game.activePlayers || !game.activePlayers[myUid]) return;
+          const turn = (shogiState && shogiState.turn) ? shogiState.turn : '';
+          if (turn !== myUid) return alert('相手の手番です');
+          if (!selected) {
+            if (board[r][c] === '.') return;
+            selected = { r, c, piece: board[r][c] };
+            sq.style.outline = '3px solid rgba(26,115,232,0.6)';
+          } else {
+            const from = selected; const to = { r, c };
+            await makeShogiMove(gid, auth.currentUser.uid, from, to);
+            selected = null;
+          }
+        } catch (e) { console.error('shogi click handler error', e); }
       });
 
       grid.appendChild(sq);
@@ -670,7 +819,7 @@ async function renderShogiBoard(gid, shogiState) {
   const list = Object.values(players).map(p => `<div class="playerBadge">${escapeHtml(p.name || p.uid)}${p.role ? ' (' + p.role + ')' : ''}</div>`).join('');
   playersDiv.innerHTML = `<div style="font-weight:700;margin-bottom:8px">参加者</div>${list}`;
   controls.appendChild(playersDiv);
-  if (auth.currentUser && gameLocalState && gameLocalState.activePlayers && gameLocalState.activePlayers[auth.currentUser.uid]) {
+  if (auth?.currentUser && gameLocalState && gameLocalState.activePlayers && gameLocalState.activePlayers[auth.currentUser.uid]) {
     const resignBtn = document.createElement('button'); resignBtn.textContent = '降参（敗北）';
     resignBtn.addEventListener('click', () => { const otherUid = Object.keys(gameLocalState.activePlayers).find(u => u !== auth.currentUser.uid); endGame(gid, otherUid); });
     controls.appendChild(resignBtn);
@@ -679,23 +828,25 @@ async function renderShogiBoard(gid, shogiState) {
 }
 
 async function makeShogiMove(gid, uid, from, to) {
-  const shogiRef = gamesRef.child(gid).child('shogi');
-  await shogiRef.transaction(current => {
-    if (!current) return current;
-    const board = current.board || initialShogiBoard();
-    const piece = board[from.r][from.c];
-    if (!piece || piece === '.') return;
-    board[to.r][to.c] = piece;
-    board[from.r][from.c] = '.';
-    const moves = current.moves || [];
-    moves.push({ by: uid, from, to, ts: now() });
-    const activePlayers = gameLocalState && gameLocalState.activePlayers ? Object.keys(gameLocalState.activePlayers) : [];
-    const other = activePlayers.find(u => u !== uid) || uid;
-    current.board = board;
-    current.moves = moves;
-    current.turn = other;
-    return current;
-  });
+  try {
+    const shogiRef = gamesRef.child(gid).child('shogi');
+    await shogiRef.transaction(current => {
+      if (!current) return current;
+      const board = current.board || initialShogiBoard();
+      const piece = board[from.r][from.c];
+      if (!piece || piece === '.') return;
+      board[to.r][to.c] = piece;
+      board[from.r][from.c] = '.';
+      const moves = current.moves || [];
+      moves.push({ by: uid, from, to, ts: now() });
+      const activePlayers = gameLocalState && gameLocalState.activePlayers ? Object.keys(gameLocalState.activePlayers) : [];
+      const other = activePlayers.find(u => u !== uid) || uid;
+      current.board = board;
+      current.moves = moves;
+      current.turn = other;
+      return current;
+    });
+  } catch (e) { console.error('makeShogiMove error', e); }
 }
 
 async function endGame(gid, winnerUid) {
@@ -705,26 +856,27 @@ async function endGame(gid, winnerUid) {
     if (winnerUid) {
       const pRef = usersRef.child(winnerUid).child('points');
       await pRef.transaction(cur => (cur || 0) + 100);
-      try { const snap = await usersRef.child(winnerUid).child('points').once('value'); const pts = snap.val() || 0; if (auth.currentUser && auth.currentUser.uid === winnerUid) { const myPoints = el('myPoints'); if (myPoints) myPoints.textContent = pts; } } catch (e) {}
+      try { const snap = await usersRef.child(winnerUid).child('points').once('value'); const pts = snap.val() || 0; if (auth?.currentUser && auth.currentUser.uid === winnerUid) { const myPoints = el('myPoints'); if (myPoints) myPoints.textContent = pts; } } catch (e) {}
     }
     setTimeout(async () => { try { await gamesRef.child(gid).remove(); } catch (e) { console.warn('remove game failed', e); } closeGameUI(); }, 2000);
   } catch (err) { console.error('endGame error', err); }
 }
 
 function closeGameUI() {
-  if (currentGameId) {
-    try { gamesRef.child(currentGameId).off(); } catch (e) {}
-  }
+  try { if (currentGameId && gamesRef) gamesRef.child(currentGameId).off(); } catch (e) {}
   currentGameId = null;
   gameLocalState = null;
   const ga = el('gameArea'); if (ga) ga.style.display = 'none';
 }
 
 function initGameAutoSubscribe() {
-  gamesRef.orderByChild('status').equalTo('lobby').on('child_added', snap => { const g = snap.val(); if (!g) return; if (!currentGameId) openGameUI(g.id, g); });
-  gamesRef.orderByChild('status').equalTo('running').on('child_added', snap => { const g = snap.val(); if (!g) return; openGameUI(g.id, g); });
-  gamesRef.on('child_changed', snap => { const g = snap.val(); if (!g) return; if (currentGameId === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); } });
-  gamesRef.on('child_removed', snap => { const removed = snap.val(); if (!removed) return; if (currentGameId === removed.id) closeGameUI(); });
+  try {
+    if (!gamesRef) return;
+    gamesRef.orderByChild('status').equalTo('lobby').on('child_added', snap => { const g = snap.val(); if (!g) return; if (!currentGameId) openGameUI(g.id, g); });
+    gamesRef.orderByChild('status').equalTo('running').on('child_added', snap => { const g = snap.val(); if (!g) return; openGameUI(g.id, g); });
+    gamesRef.on('child_changed', snap => { const g = snap.val(); if (!g) return; if (currentGameId === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); } });
+    gamesRef.on('child_removed', snap => { const removed = snap.val(); if (!removed) return; if (currentGameId === removed.id) closeGameUI(); });
+  } catch (e) { console.error('initGameAutoSubscribe error', e); }
 }
 
 // renderGameState wrapper
@@ -740,7 +892,7 @@ function renderGameState(game) {
 window.checkDebug = function () {
   console.log('firebase loaded?', typeof firebase !== 'undefined');
   console.log('firebase apps:', firebase && firebase.apps ? firebase.apps.length : 'no firebase');
-  console.log('auth.currentUser', auth.currentUser);
+  console.log('auth.currentUser', auth?.currentUser || null);
   console.log('DOM elements:', {
     comments: !!el('comments'),
     pollArea: !!el('pollArea'),
