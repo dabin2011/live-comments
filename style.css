@@ -1,14 +1,11 @@
-:root{
-  --bg:#f7f7f8; --panel:#ffffff; --accent:#2b7cff; --muted:#666; --border:#e6e6e6;
-  --maxw:1100px;
-}
+:root{--bg:#f7f7f8;--panel:#fff;--accent:#2b7cff;--muted:#666;--border:#e6e6e6}
 *{box-sizing:border-box}
-body{font-family:system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Segoe UI", Roboto, sans-serif; margin:0; background:var(--bg); color:#222}
-.topbar{background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:10px 20px;max-width:var(--maxw);margin:0 auto}
+body{font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;margin:0;background:var(--bg);color:#222}
+.topbar{background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:10px 20px;max-width:1100px;margin:0 auto}
 .brand{margin:0;font-size:18px}
 .auth{display:flex;align-items:center;gap:8px}
 .avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)}
-.container{max-width:var(--maxw);margin:20px auto;padding:0 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.container{max-width:1100px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
 .panel{background:var(--panel);border:1px solid var(--border);padding:16px;border-radius:8px;min-height:120px}
 .row{display:flex;gap:8px;align-items:center;margin-top:8px}
 .input{flex:1;padding:8px;border:1px solid #ddd;border-radius:6px}
@@ -21,15 +18,26 @@ body{font-family:system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sa
 .comment-body{margin-top:6px;color:#111}
 .muted{color:var(--muted);font-size:13px}
 
-/* poll area */
-.options{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000}
-.modal-inner{background:#fff;padding:18px;border-radius:10px;min-width:320px;max-width:420px;border:1px solid var(--border)}
+.modal-inner{background:#fff;padding:18px;border-radius:10px;min-width:320px;max-width:520px;border:1px solid var(--border)}
 .footer{text-align:center;padding:12px;color:var(--muted);font-size:13px}
 
-/* 将棋ボード（シンプル） */
+/* poll popup */
+.poll-popup{position:fixed;left:50%;top:12%;transform:translateX(-50%);background:#fff;border:2px solid #333;padding:12px;border-radius:8px;z-index:1200;min-width:320px;box-shadow:0 6px 20px rgba(0,0,0,0.2)}
+.poll-inner h3{margin:0 0 8px 0}
+.poll-option{display:block;margin:6px 0;padding:8px;border-radius:6px;border:1px solid #ddd;background:#fafafa;cursor:pointer}
+
+/* visit notice */
+.visit-notice{position:fixed;right:16px;top:16px;background:#c62828;color:#fff;padding:10px 14px;border-radius:8px;z-index:1400;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.visitor-note{margin-right:12px;font-weight:700}
+.conn-count{font-size:13px;color:var(--muted)}
+
+/* slide comment (when poll/game active) */
+#commentPanel.slid { transform: translateY(260px); transition: transform 400ms ease; }
+#commentPanel { transition: transform 400ms ease; }
+
+/* 将棋ボード */
 .shogi .grid{display:grid;grid-template-columns:repeat(9,46px);grid-auto-rows:46px;gap:4px;justify-content:start}
 .grid-cell{width:46px;height:46px;border:1px solid #e3c9b0;background:#fff;display:flex;align-items:center;justify-content:center;position:relative}
 .grid-cell.highlight{outline:3px solid rgba(255,0,0,0.6)}
@@ -37,6 +45,11 @@ body{font-family:system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sa
 .koma-gote{transform:rotate(180deg);opacity:0.95}
 .gamePanel{margin-top:12px;padding:12px;border:1px dashed var(--border)}
 .game-row{cursor:pointer;padding:8px;border-bottom:1px solid #fafafa}
+
+/* results graph */
+.poll-results {display:flex;flex-direction:column;gap:8px}
+.result-bar {height:18px;background:#eee;border-radius:6px;overflow:hidden;position:relative}
+.result-fill {height:100%;background:var(--accent);width:0%;transition:width 600ms ease}
 
 /* responsive */
 @media (max-width:520px){
