@@ -4,9 +4,9 @@
 
 /* 設定（Firebase Console の値で必ず置換） */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyD1AK05uuGBw2U4Ne5LbKzzjzCqnln60mg",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  databaseURL: "https://shige-live-default-rtdb.firebaseio.com/",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT_ID.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -14,7 +14,7 @@ const firebaseConfig = {
 };
 
 /* Apps Script の公開WebアプリURL（プロフィール画像アップロードに使用） */
-const GAS_URL = "https://script.google.com/macros/s/AKfycbXXXXXXXXXXXXXXXXXXXX/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx4wOZbfs_5oln8NQpK_6VXyEzqJDGdn5MvK4NNtMkH1Ve_az-8e_J5ukKe8JNrbHgO/exec";
 
 /* ユーティリティ */
 function el(id){ return document.getElementById(id); }
