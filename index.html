@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>配信 + コメント + 将棋</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- 必須: Firebase SDK をここで読み込んでから script.js を読み込んでください（compat またはモジュール版） -->
-  <!-- 例（compat）:
+  <!-- 必須: Firebase SDK をここで読み込んでから script.js を読み込んでください（compat またはモジュール版）
+       例（compat）:
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -101,6 +101,7 @@
     <div class="modal-content small">
       <button class="close" data-close="loginModal" aria-label="閉じる">✕</button>
       <h3>ログイン / 新規登録</h3>
+      <div id="loginError" class="form-error" aria-live="assertive"></div>
       <input id="email" type="email" placeholder="メール" />
       <input id="password" type="password" placeholder="パスワード" />
       <div class="modal-actions">
