@@ -508,9 +508,7 @@ async function finalizePoll(){
   } catch(e){ console.error('finalizePoll error', e); }
 }
 
-/* Game（将棋） */
-
-// 駒コードと画像ファイルの対応表
+// 駒画像マッピング
 const pieceImages = {
   'p': 'pawn.png','P': 'pawn.png',
   'l': 'lance.png','L': 'lance.png',
@@ -528,84 +526,7 @@ const pieceImages = {
   '+b': 'horse.png'
 };
 
-// 選択中の駒を記録
 let selectedPiece = null;
-
-function startGameByHost(){
-  try {
-    if (!auth?.currentUser) return alert('ゲーム開始はログインが必要です');
-    const chosen = document.querySelector('.gameChoice[data-selected="true"]');
-    if (!chosen) return alert('ゲームを選択してください');
-    const gameType = chosen.getAttribute('data-game');
-    const spectatorsAllowed = !!el('publicGame')?.checked;
-    const gid = gamesRef ? gamesRef.push().key : ('g_' + Math.floor(Math.random()*1e9));
-    const gameObj = { id: gid, type: gameType, hostUid: auth.currentUser.uid, status: 'lobby', createdAt: now(), players:{}, spectatorsAllowed: !!spectatorsAllowed, winnerUid: null };
-    if (gamesRef) { gamesRef.child(gid).set(gameObj).then(()=>openGameUI(gid, gameObj)); } else openGameUI(gid, gameObj);
-    closeModal('gameModal');
-  } catch(e){ console.error('startGame error', e); alert('ゲーム作成に失敗しました'); }
-}
-
-function openGameUI(gid, initialObj){
-  if (!gid) return;
-  try { if (currentGameId && gamesRef) gamesRef.child(currentGameId).off(); } catch(e){}
-  currentGameId = gid; gameLocalState = initialObj || null;
-  const ga = el('gameArea'); ga && (ga.style.display = 'block');
-  renderGameHeader(initialObj || {});
-  if (!gamesRef) return;
-  gamesRef.child(gid).on('value', snap => {
-    const g = snap.val();
-    if (!g) { closeGameUI(); return; }
-    gameLocalState = g; renderGameState(g); renderGameHeader(g);
-  });
-}
-
-function renderGameHeader(game){
-  const title = el('gameTitle'); title && (title.textContent = game.type === 'shogi' ? '将棋（対戦）' : 'ゲーム');
-  const controls = el('gameControls'); if (!controls) return; controls.innerHTML = '';
-  const statusBadge = document.createElement('span'); statusBadge.textContent = game.status || 'lobby'; statusBadge.style.marginRight='8px'; statusBadge.style.fontWeight='700'; controls.appendChild(statusBadge);
-  const hostInfo = document.createElement('span'); hostInfo.textContent = game.hostUid ? `主催: ${game.hostUid}` : '主催: なし'; hostInfo.style.marginRight='12px'; hostInfo.style.opacity='0.85'; controls.appendChild(hostInfo);
-
-  if (auth?.currentUser) {
-    if (game.status === 'lobby') {
-      const joinBtn = document.createElement('button'); joinBtn.textContent='参加希望'; joinBtn.addEventListener('click', ()=> requestJoinGame(game.id)); controls.appendChild(joinBtn);
-      if (auth.currentUser.uid === game.hostUid) {
-        const pickBtn = document.createElement('button'); pickBtn.textContent='参加者から選出して開始'; pickBtn.addEventListener('click', ()=> pickAndStartGame(game.id)); controls.appendChild(pickBtn);
-      }
-    } else if (game.status === 'running') {
-      if (auth.currentUser.uid === game.hostUid) {
-        const endBtn = document.createElement('button'); endBtn.textContent='強制終了'; endBtn.addEventListener('click', ()=> endGame(game.id, null)); controls.appendChild(endBtn);
-      }
-    }
-  } else {
-    const info = document.createElement('span'); info.textContent='参加するにはログインしてください'; info.style.marginLeft='8px'; info.style.color='#666'; controls.appendChild(info);
-  }
-}
-
-async function requestJoinGame(gid){
-  if (!auth?.currentUser) return alert('ログインしてください');
-  const u = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || 'ユーザー', accepted:false, ts: now() };
-  gamesRef && await gamesRef.child(gid).child('players').child(u.uid).set(u);
-  alert('参加希望を出しました。主催者が選出するまでお待ちください。');
-}
-
-async function pickAndStartGame(gid){
-  try {
-    if (!gamesRef) return alert('サーバ未接続のため簡易開始は不可');
-    const snap = await gamesRef.child(gid).child('players').once('value');
-    const players = []; snap.forEach(ch=>{ const v = ch.val(); v?.uid && players.push(v); });
-    const candidates = players.filter(p=>p.uid !== auth.currentUser.uid);
-    if (candidates.length === 0) return alert('参加希望者がいません');
-    const pick = candidates[Math.floor(Math.random()*candidates.length)];
-    const updates = {};
-    updates[`players/${auth.currentUser.uid}`] = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || auth.currentUser.email || '主催者', accepted:true, role:'host', ts: now() };
-    updates[`players/${pick.uid}`] = { uid: pick.uid, name: pick.name, accepted:true, role:'player', ts: now() };
-    updates['status'] = 'running';
-    updates['startedAt'] = now();
-    updates['activePlayers'] = { [auth.currentUser.uid]: true, [pick.uid]: true };
-    await gamesRef.child(gid).update(updates);
-    await gamesRef.child(gid).child('shogi').set({ board: initialShogiBoard(), turn: auth.currentUser.uid, moves: [] });
-  } catch(e){ console.error('pickAndStartGame error', e); }
-}
 
 function initialShogiBoard(){
   return [
@@ -622,36 +543,52 @@ function initialShogiBoard(){
 }
 
 function renderGameState(game){
-  if (!game) return;
-  if (game.type === 'shogi') {
-    const shogi = game.shogi || game.shogiState || {};
-    renderShogiBoard(game.id, shogi);
+  if (!game || game.type !== 'shogi') return;
+  const shogi = game.shogi || game.shogiState || {};
+  renderShogiBoard(game.id, shogi);
 
-    // 自分の番かどうかを表示
-    const info = el('gameInfo');
-    if (auth?.currentUser) {
-      if (shogi.turn === auth.currentUser.uid) {
-        info.textContent = "あなたの番です";
-      } else {
-        info.textContent = "相手の番です";
-      }
-    }
+  const info = document.getElementById('gameInfo');
+  if (auth?.currentUser && info) {
+    info.textContent = (shogi.turn === auth.currentUser.uid) ? "あなたの番です" : "相手の番です";
   }
 }
 
+function clearHighlights(){
+  document.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
+}
+
+function calcMoves(piece, r, c, board){
+  const moves = [];
+  if (piece.toLowerCase() === 'p') {
+    const dir = (piece === 'P') ? -1 : 1;
+    const nr = r + dir;
+    if (nr >= 0 && nr < 9 && board[nr][c] === '.') {
+      moves.push({ r: nr, c });
+    }
+  }
+  return moves;
+}
+
 async function renderShogiBoard(gid, shogiState){
-  const container = el('shogiContainer'); if (!container) return;
+  const container = document.getElementById('shogiContainer');
+  if (!container) return;
   container.innerHTML = '';
-  const boardWrap = document.createElement('div'); boardWrap.className='shogiBoard';
-  const size = 9;
-  const grid = document.createElement('div'); grid.className='grid';
+
+  const boardWrap = document.createElement('div');
+  boardWrap.className = 'shogiBoard';
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+
   const board = shogiState?.board || initialShogiBoard();
 
-  for (let r=0;r<size;r++){
-    for (let c=0;c<size;c++){
-      const sq = document.createElement('div'); 
-      sq.className='grid-cell'; 
-      sq.dataset.r=r; sq.dataset.c=c;
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const sq = document.createElement('div');
+      sq.className = 'grid-cell';
+      sq.dataset.r = r;
+      sq.dataset.c = c;
+
       const piece = board[r][c];
       if (piece && piece !== '.') {
         const img = document.createElement('img');
@@ -660,55 +597,94 @@ async function renderShogiBoard(gid, shogiState){
         img.src = `assets/koma/${filename}`;
         if (piece === piece.toLowerCase()) img.classList.add('koma-gote');
 
-        // 駒コードに応じて画像を切り替え
-        const filename = pieceImages[piece] || 'pawn.png';
-        img.src = `assets/koma/${filename}`;
-        const isSente = piece === piece.toUpperCase();
-        if (!isSente) img.classList.add('koma-gote'); else img.classList.remove('koma-gote');
+        img.addEventListener('click', () => {
+          clearHighlights();
+          selectedPiece = { r, c };
+          const moves = calcMoves(piece, r, c, board);
+          moves.forEach(m => {
+            const target = grid.querySelector(`.grid-cell[data-r="${m.r}"][data-c="${m.c}"]`);
+            if (target) target.classList.add('highlight');
+          });
+        });
+
         sq.appendChild(img);
       }
+
+      sq.addEventListener('click', () => {
+        if (selectedPiece) {
+          const from = selectedPiece;
+          const to = { r, c };
+          makeShogiMove(gid, auth.currentUser.uid, from, to);
+          selectedPiece = null;
+          clearHighlights();
+        }
+      });
+
       grid.appendChild(sq);
     }
   }
-  boardWrap.appendChild(grid); container.appendChild(boardWrap);
+
+  boardWrap.appendChild(grid);
+  container.appendChild(boardWrap);
 }
+
 async function makeShogiMove(gid, uid, from, to){
-  try {
-    if (!gamesRef) return;
-    const shogiRef = gamesRef.child(gid).child('shogi');
-    await shogiRef.transaction(current => {
-      if (!current) return current;
-      const board = current.board || initialShogiBoard();
-      const piece = board[from.r][from.c];
-      if (!piece || piece === '.') return;
-      board[to.r][to.c] = piece;
-      board[from.r][from.c] = '.';
-      const moves = current.moves || [];
-      moves.push({ by: uid, from, to, ts: now() });
-      const activePlayers = gameLocalState?.activePlayers ? Object.keys(gameLocalState.activePlayers) : [];
-      const other = activePlayers.find(u=>u!==uid) || uid;
-      current.board = board; current.moves = moves; current.turn = other;
-      return current;
-    });
-  } catch(e){ console.error('makeShogiMove error', e); }
+  if (!gamesRef) return;
+  const shogiRef = gamesRef.child(gid).child('shogi');
+  await shogiRef.transaction(current => {
+    if (!current) return current;
+    const board = current.board || initialShogiBoard();
+    const piece = board[from.r][from.c];
+    if (!piece || piece === '.') return;
+
+    const target = board[to.r][to.c];
+    if (target === 'k' || target === 'K') {
+      if (uid === auth.currentUser.uid) {
+        alert("あなたの勝利");
+      } else {
+        alert("あなたの負け");
+      }
+    }
+
+    board[to.r][to.c] = piece;
+    board[from.r][from.c] = '.';
+
+    const moves = current.moves || [];
+    moves.push({ by: uid, from, to, ts: Date.now() });
+
+    const activePlayers = gameLocalState?.activePlayers ? Object.keys(gameLocalState.activePlayers) : [];
+    const other = activePlayers.find(u => u !== uid) || uid;
+
+    current.board = board;
+    current.moves = moves;
+    current.turn = other;
+
+    return current;
+  });
 }
-async function endGame(gid, winnerUid){
-  try {
-    if (!gamesRef) return;
-    const updates = { status:'finished', finishedAt: now(), winnerUid: winnerUid || null };
-    await gamesRef.child(gid).update(updates);
-    setTimeout(async ()=>{ try { await gamesRef.child(gid).remove(); } catch(e){ console.warn('remove game failed', e); } closeGameUI(); }, 2000);
-  } catch(e){ console.error('endGame error', e); }
+
+function endGame(gid, winnerUid){
+  if (!gamesRef) return;
+  const updates = {
+    status: 'finished',
+    finishedAt: Date.now(),
+    winnerUid: winnerUid || null
+  };
+  gamesRef.child(gid).update(updates);
+  setTimeout(() => {
+    gamesRef.child(gid).remove().catch(e => console.warn('remove game failed', e));
+    closeGameUI();
+  }, 2000);
 }
-function closeGameUI(){ try { if (currentGameId && gamesRef) gamesRef.child(currentGameId).off(); } catch(e){} currentGameId=null; gameLocalState=null; const ga=el('gameArea'); ga && (ga.style.display='none'); }
-function initGameAutoSubscribe(){
+
+function closeGameUI(){
   try {
-    if (!gamesRef) return;
-    gamesRef.orderByChild('status').equalTo('lobby').on('child_added', snap=>{ const g=snap.val(); if(!g) return; if(!currentGameId) openGameUI(g.id,g); });
-    gamesRef.orderByChild('status').equalTo('running').on('child_added', snap=>{ const g=snap.val(); if(!g) return; openGameUI(g.id,g); });
-    gamesRef.on('child_changed', snap=>{ const g=snap.val(); if(!g) return; if (currentGameId === g.id) { gameLocalState = g; renderGameState(g); renderGameHeader(g); } });
-    gamesRef.on('child_removed', snap=>{ const removed = snap.val(); if(!removed) return; if (currentGameId === removed.id) closeGameUI(); });
-  } catch(e){ console.error('initGameAutoSubscribe error', e); }
+    if (currentGameId && gamesRef) gamesRef.child(currentGameId).off();
+  } catch(e){}
+  currentGameId = null;
+  gameLocalState = null;
+  const ga = document.getElementById('gameArea');
+  if (ga) ga.style.display = 'none';
 }
 
 /* 呼び出し関連プレースホルダ（UI保持） */
